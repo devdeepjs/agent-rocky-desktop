@@ -30,8 +30,8 @@ struct RockyRootView: View {
                 .padding(.bottom, 118)
             }
 
-            PixelRockyView(mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
-                .frame(width: 138, height: 122)
+            RockyCreatureView(mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
+                .frame(width: 156, height: 132)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.poke()
@@ -257,44 +257,51 @@ private struct WindowResizeGrip: View {
     }
 }
 
-private struct PixelRockyView: View {
+private struct RockyCreatureView: View {
     let mood: RockyMood
     let animation: RockyAnimation
     let isAwake: Bool
 
     @State private var gaitFrame = false
     @State private var blink = false
+    @State private var glowPulse = false
+
+    private let canvas = CGSize(width: 180, height: 150)
 
     var body: some View {
         GeometryReader { geometry in
-            let unit = min(geometry.size.width / 18, geometry.size.height / 17)
-            let originX = (geometry.size.width - unit * 18) / 2
-            let originY = (geometry.size.height - unit * 17) / 2
+            let scale = min(geometry.size.width / canvas.width, geometry.size.height / canvas.height)
+            let originX = (geometry.size.width - canvas.width * scale) / 2
+            let originY = (geometry.size.height - canvas.height * scale) / 2
 
             ZStack(alignment: .topLeading) {
-                shadow(unit: unit)
-                    .offset(x: originX + unit * 4.2, y: originY + unit * 14.4)
+                shadow
 
-                ForEach(pixelBlocks(), id: \.id) { block in
-                    let spriteOffset = spriteOffset(for: block.motion, unit: unit)
+                backLimbs
 
-                    Rectangle()
-                        .fill(block.color)
-                        .frame(width: block.w * unit, height: block.h * unit)
-                        .offset(
-                            x: originX + block.x * unit + spriteOffset.width,
-                            y: originY + block.y * unit + spriteOffset.height
-                        )
-                }
+                RockyShellShape()
+                    .fill(shellGradient)
+                    .shadow(color: .black.opacity(0.35), radius: 7, x: 0, y: 7)
+
+                facets
+
+                RockyShellShape()
+                    .stroke(Color(red: 0.07, green: 0.045, blue: 0.025), lineWidth: 3.4)
+
+                mineralLights
+
+                frontLimbs
             }
-            .offset(y: verticalMotion)
+            .frame(width: canvas.width, height: canvas.height)
+            .scaleEffect(scale, anchor: .topLeading)
+            .offset(x: originX, y: originY + verticalMotion)
             .scaleEffect(isAwake ? 1.04 : 1.0)
             .animation(.easeInOut(duration: 0.16), value: isAwake)
-            .task(id: isAwake) {
-                while !Task.isCancelled {
-                    try? await Task.sleep(for: isAwake ? .milliseconds(220) : .milliseconds(340))
-                    gaitFrame.toggle()
-                }
+            .animation(.easeInOut(duration: isAwake ? 0.42 : 0.72).repeatForever(autoreverses: true), value: gaitFrame)
+            .animation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true), value: glowPulse)
+            .onAppear {
+                gaitFrame = true
+                glowPulse = true
             }
             .task {
                 while !Task.isCancelled {
@@ -307,11 +314,12 @@ private struct PixelRockyView: View {
         }
     }
 
-    private func shadow(unit: CGFloat) -> some View {
-        Rectangle()
-            .fill(.black.opacity(0.38))
-            .frame(width: unit * 9.5, height: unit * 1.0)
-            .blur(radius: unit * 0.4)
+    private var shadow: some View {
+        Ellipse()
+            .fill(.black.opacity(0.34))
+            .frame(width: 106, height: 17)
+            .blur(radius: 4)
+            .offset(x: 37, y: 123)
     }
 
     private var verticalMotion: CGFloat {
@@ -329,89 +337,109 @@ private struct PixelRockyView: View {
         }
     }
 
-    private func spriteOffset(for motion: PixelMotion, unit: CGFloat) -> CGSize {
-        switch motion {
-        case .none:
-            return .zero
-        case .stepA:
-            return gaitFrame ? CGSize(width: -unit, height: 0) : CGSize(width: 0, height: -unit)
-        case .stepB:
-            return gaitFrame ? CGSize(width: unit, height: -unit) : .zero
-        case .grabberA:
-            return gaitFrame ? CGSize(width: 0, height: -unit) : .zero
-        case .grabberB:
-            return gaitFrame ? .zero : CGSize(width: 0, height: -unit)
+    private var shellGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 0.98, green: 0.66, blue: 0.28),
+                Color(red: 0.63, green: 0.34, blue: 0.12),
+                Color(red: 0.24, green: 0.13, blue: 0.06)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var backLimbs: some View {
+        Group {
+            RockyLimb(
+                resting: [CGPoint(x: 68, y: 72), CGPoint(x: 46, y: 80), CGPoint(x: 27, y: 111)],
+                stepping: [CGPoint(x: 68, y: 72), CGPoint(x: 43, y: 76), CGPoint(x: 22, y: 104)],
+                active: gaitFrame,
+                lineWidth: 8,
+                tint: Color(red: 0.46, green: 0.25, blue: 0.10)
+            )
+            RockyLimb(
+                resting: [CGPoint(x: 112, y: 72), CGPoint(x: 135, y: 81), CGPoint(x: 154, y: 112)],
+                stepping: [CGPoint(x: 112, y: 72), CGPoint(x: 137, y: 77), CGPoint(x: 159, y: 105)],
+                active: !gaitFrame,
+                lineWidth: 8,
+                tint: Color(red: 0.46, green: 0.25, blue: 0.10)
+            )
+            RockyLimb(
+                resting: [CGPoint(x: 90, y: 96), CGPoint(x: 86, y: 118), CGPoint(x: 79, y: 139)],
+                stepping: [CGPoint(x: 90, y: 96), CGPoint(x: 92, y: 116), CGPoint(x: 101, y: 139)],
+                active: gaitFrame,
+                lineWidth: 7.2,
+                tint: Color(red: 0.40, green: 0.21, blue: 0.08)
+            )
         }
     }
 
-    private func pixelBlocks() -> [PixelBlock] {
-        let crack = Color(red: 0.09, green: 0.05, blue: 0.025)
-        let dark = Color(red: 0.18, green: 0.10, blue: 0.045)
-        let outline = Color(red: 0.055, green: 0.035, blue: 0.02)
-        let rust = Color(red: 0.43, green: 0.22, blue: 0.075)
-        let brown = Color(red: 0.60, green: 0.34, blue: 0.13)
-        let gold = Color(red: 0.86, green: 0.55, blue: 0.18)
-        let light = Color(red: 1.0, green: 0.74, blue: 0.34)
-        let teal = Color(red: 0.0, green: 0.76, blue: 0.62)
-        let mineral = blink ? moodAccent.opacity(0.45) : moodAccent
-        let accent = moodAccent
+    private var frontLimbs: some View {
+        Group {
+            RockyLimb(
+                resting: [CGPoint(x: 65, y: 90), CGPoint(x: 45, y: 101), CGPoint(x: 33, y: 133)],
+                stepping: [CGPoint(x: 65, y: 90), CGPoint(x: 50, y: 103), CGPoint(x: 48, y: 135)],
+                active: !gaitFrame,
+                lineWidth: 8.5,
+                tint: Color(red: 0.62, green: 0.36, blue: 0.15)
+            )
+            RockyLimb(
+                resting: [CGPoint(x: 115, y: 90), CGPoint(x: 136, y: 102), CGPoint(x: 147, y: 133)],
+                stepping: [CGPoint(x: 115, y: 90), CGPoint(x: 131, y: 104), CGPoint(x: 132, y: 135)],
+                active: gaitFrame,
+                lineWidth: 8.5,
+                tint: Color(red: 0.62, green: 0.36, blue: 0.15)
+            )
+            RockyLimb(
+                resting: [CGPoint(x: 70, y: 57), CGPoint(x: 52, y: 40), CGPoint(x: 42, y: 19)],
+                stepping: [CGPoint(x: 70, y: 57), CGPoint(x: 49, y: 36), CGPoint(x: 38, y: 15)],
+                active: gaitFrame,
+                lineWidth: 7.2,
+                tint: Color(red: 0.72, green: 0.43, blue: 0.17),
+                tipColor: moodAccent
+            )
+            RockyLimb(
+                resting: [CGPoint(x: 110, y: 57), CGPoint(x: 129, y: 40), CGPoint(x: 139, y: 19)],
+                stepping: [CGPoint(x: 110, y: 57), CGPoint(x: 132, y: 36), CGPoint(x: 143, y: 15)],
+                active: !gaitFrame,
+                lineWidth: 7.2,
+                tint: Color(red: 0.72, green: 0.43, blue: 0.17),
+                tipColor: moodAccent
+            )
+        }
+    }
 
-        return [
-            // Rear splayed legs.
-            PixelBlock(3, 7, 1, 3, outline, motion: .stepA), PixelBlock(2, 9, 1, 3, rust, motion: .stepA), PixelBlock(0, 12, 3, 1, outline, motion: .stepA),
-            PixelBlock(14, 7, 1, 3, outline, motion: .stepB), PixelBlock(15, 9, 1, 3, rust, motion: .stepB), PixelBlock(15, 12, 3, 1, outline, motion: .stepB),
+    private var facets: some View {
+        Group {
+            RockyFacet(points: [CGPoint(x: 61, y: 47), CGPoint(x: 89, y: 37), CGPoint(x: 96, y: 70), CGPoint(x: 67, y: 75)], color: Color(red: 1.0, green: 0.73, blue: 0.34).opacity(0.72))
+            RockyFacet(points: [CGPoint(x: 92, y: 38), CGPoint(x: 121, y: 49), CGPoint(x: 111, y: 76), CGPoint(x: 96, y: 70)], color: Color(red: 0.78, green: 0.42, blue: 0.16).opacity(0.68))
+            RockyFacet(points: [CGPoint(x: 48, y: 70), CGPoint(x: 67, y: 75), CGPoint(x: 73, y: 109), CGPoint(x: 53, y: 97)], color: Color(red: 0.35, green: 0.18, blue: 0.07).opacity(0.46))
+            RockyFacet(points: [CGPoint(x: 67, y: 75), CGPoint(x: 96, y: 70), CGPoint(x: 102, y: 111), CGPoint(x: 73, y: 109)], color: Color(red: 0.66, green: 0.36, blue: 0.14).opacity(0.62))
+            RockyFacet(points: [CGPoint(x: 96, y: 70), CGPoint(x: 131, y: 73), CGPoint(x: 124, y: 99), CGPoint(x: 102, y: 111)], color: Color(red: 0.24, green: 0.12, blue: 0.05).opacity(0.45))
+            RockyLine(points: [CGPoint(x: 87, y: 41), CGPoint(x: 95, y: 70), CGPoint(x: 103, y: 110)], lineWidth: 2.0, color: Color.black.opacity(0.28))
+            RockyLine(points: [CGPoint(x: 60, y: 68), CGPoint(x: 95, y: 70), CGPoint(x: 126, y: 74)], lineWidth: 1.8, color: Color.white.opacity(0.18))
+            RockyLine(points: [CGPoint(x: 76, y: 55), CGPoint(x: 82, y: 66), CGPoint(x: 77, y: 80)], lineWidth: 1.6, color: Color(red: 0.07, green: 0.04, blue: 0.02).opacity(0.5))
+            RockyLine(points: [CGPoint(x: 113, y: 58), CGPoint(x: 106, y: 76), CGPoint(x: 112, y: 91)], lineWidth: 1.8, color: Color(red: 0.07, green: 0.04, blue: 0.02).opacity(0.56))
+        }
+    }
 
-            // Middle walking legs.
-            PixelBlock(5, 10, 1, 2, outline, motion: .stepB), PixelBlock(4, 12, 1, 3, brown, motion: .stepB), PixelBlock(2, 15, 3, 1, outline, motion: .stepB),
-            PixelBlock(12, 10, 1, 2, outline, motion: .stepA), PixelBlock(13, 12, 1, 3, brown, motion: .stepA), PixelBlock(13, 15, 3, 1, outline, motion: .stepA),
-
-            // Front angled legs.
-            PixelBlock(6, 11, 1, 3, outline, motion: .stepA), PixelBlock(7, 13, 1, 2, rust, motion: .stepA), PixelBlock(6, 15, 3, 1, outline, motion: .stepA),
-            PixelBlock(11, 11, 1, 3, outline, motion: .stepB), PixelBlock(10, 13, 1, 2, rust, motion: .stepB), PixelBlock(9, 15, 3, 1, outline, motion: .stepB),
-
-            // Rocky-style raised grabbers.
-            PixelBlock(5, 4, 1, 3, outline, motion: .grabberA), PixelBlock(4, 3, 1, 2, brown, motion: .grabberA), PixelBlock(3, 2, 1, 2, gold, motion: .grabberA), PixelBlock(3, 1, 1, 1, teal, motion: .grabberA),
-            PixelBlock(12, 4, 1, 3, outline, motion: .grabberB), PixelBlock(13, 3, 1, 2, brown, motion: .grabberB), PixelBlock(14, 2, 1, 2, gold, motion: .grabberB), PixelBlock(14, 1, 1, 1, teal, motion: .grabberB),
-
-            // Jagged rock shell outline.
-            PixelBlock(7, 4, 4, 1, outline),
-            PixelBlock(6, 5, 6, 1, outline),
-            PixelBlock(5, 6, 8, 1, outline),
-            PixelBlock(4, 7, 10, 3, outline),
-            PixelBlock(5, 10, 8, 2, outline),
-            PixelBlock(6, 12, 6, 1, outline),
-            PixelBlock(7, 13, 4, 1, outline),
-
-            // Faceted mineral body.
-            PixelBlock(7, 5, 4, 1, light),
-            PixelBlock(6, 6, 6, 1, gold),
-            PixelBlock(5, 7, 3, 2, brown),
-            PixelBlock(8, 7, 4, 1, light.opacity(0.9)),
-            PixelBlock(12, 7, 1, 2, rust),
-            PixelBlock(5, 9, 4, 1, gold.opacity(0.86)),
-            PixelBlock(9, 8, 3, 2, brown),
-            PixelBlock(12, 9, 1, 1, dark),
-            PixelBlock(6, 10, 3, 1, rust),
-            PixelBlock(9, 10, 3, 1, gold.opacity(0.78)),
-            PixelBlock(7, 11, 4, 1, brown),
-            PixelBlock(8, 12, 2, 1, dark.opacity(0.92)),
-
-            // Asymmetric cracks, not a face.
-            PixelBlock(8, 6, 1, 2, crack.opacity(0.72)),
-            PixelBlock(9, 8, 1, 1, crack.opacity(0.82)),
-            PixelBlock(10, 9, 1, 2, crack.opacity(0.72)),
-            PixelBlock(6, 9, 2, 1, Color.white.opacity(0.18)),
-            PixelBlock(10, 7, 2, 1, Color.white.opacity(0.24)),
-            PixelBlock(11, 11, 1, 1, crack.opacity(0.8)),
-
-            // Tiny mineral lights.
-            PixelBlock(6, 8, 1, 1, teal.opacity(0.88)),
-            PixelBlock(11, 9, 1, 1, mineral),
-            PixelBlock(9, 12, 1, 1, accent.opacity(0.78))
-        ].enumerated().map { index, block in
-            var mutable = block
-            mutable.id = index
-            return mutable
+    private var mineralLights: some View {
+        Group {
+            Circle()
+                .fill(moodAccent.opacity(glowPulse ? 0.96 : 0.55))
+                .frame(width: 11, height: 11)
+                .shadow(color: moodAccent.opacity(glowPulse ? 0.85 : 0.35), radius: glowPulse ? 10 : 4)
+                .position(x: 96, y: 88)
+            Circle()
+                .fill(Color(red: 0.1, green: 0.95, blue: 0.78).opacity(blink ? 0.38 : 0.88))
+                .frame(width: 6, height: 6)
+                .shadow(color: Color(red: 0.1, green: 0.95, blue: 0.78).opacity(0.5), radius: 5)
+                .position(x: 69, y: 63)
+            Circle()
+                .fill(Color(red: 1.0, green: 0.82, blue: 0.32).opacity(0.72))
+                .frame(width: 5, height: 5)
+                .position(x: 119, y: 82)
         }
     }
 
@@ -431,29 +459,112 @@ private struct PixelRockyView: View {
     }
 }
 
-private enum PixelMotion {
-    case none
-    case stepA
-    case stepB
-    case grabberA
-    case grabberB
+private struct RockyShellShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + rect.width * x / 180, y: rect.minY + rect.height * y / 150)
+        }
+
+        var path = Path()
+        path.move(to: p(88, 36))
+        path.addLine(to: p(119, 45))
+        path.addLine(to: p(136, 70))
+        path.addLine(to: p(128, 101))
+        path.addLine(to: p(105, 119))
+        path.addLine(to: p(74, 117))
+        path.addLine(to: p(51, 98))
+        path.addLine(to: p(43, 69))
+        path.addLine(to: p(59, 46))
+        path.closeSubpath()
+        return path
+    }
 }
 
-private struct PixelBlock {
-    var id = 0
-    let x: CGFloat
-    let y: CGFloat
-    let w: CGFloat
-    let h: CGFloat
-    let color: Color
-    let motion: PixelMotion
+private struct RockyLimb: View {
+    let resting: [CGPoint]
+    let stepping: [CGPoint]
+    let active: Bool
+    let lineWidth: CGFloat
+    let tint: Color
+    var tipColor: Color?
 
-    init(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color, motion: PixelMotion = .none) {
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.color = color
-        self.motion = motion
+    private var points: [CGPoint] {
+        active ? stepping : resting
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            RockyLine(points: points, lineWidth: lineWidth + 3.2, color: Color(red: 0.06, green: 0.035, blue: 0.018))
+
+            Path { path in
+                guard let first = points.first else {
+                    return
+                }
+
+                path.move(to: first)
+                for point in points.dropFirst() {
+                    path.addLine(to: point)
+                }
+            }
+            .stroke(
+                LinearGradient(
+                    colors: [tint.opacity(1.0), tint.opacity(0.66), Color(red: 0.20, green: 0.11, blue: 0.045)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ),
+                style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+            )
+
+            ForEach(Array(points.enumerated()), id: \.offset) { index, point in
+                Circle()
+                    .fill(index == points.count - 1 ? (tipColor ?? Color(red: 0.11, green: 0.06, blue: 0.03)) : tint.opacity(0.95))
+                    .overlay(Circle().stroke(Color.black.opacity(0.34), lineWidth: 1.2))
+                    .frame(width: index == points.count - 1 ? lineWidth * 1.18 : lineWidth * 0.82, height: index == points.count - 1 ? lineWidth * 1.18 : lineWidth * 0.82)
+                    .position(point)
+            }
+        }
+        .frame(width: 180, height: 150)
+    }
+}
+
+private struct RockyFacet: View {
+    let points: [CGPoint]
+    let color: Color
+
+    var body: some View {
+        Path { path in
+            guard let first = points.first else {
+                return
+            }
+
+            path.move(to: first)
+            for point in points.dropFirst() {
+                path.addLine(to: point)
+            }
+            path.closeSubpath()
+        }
+        .fill(color)
+        .frame(width: 180, height: 150)
+    }
+}
+
+private struct RockyLine: View {
+    let points: [CGPoint]
+    let lineWidth: CGFloat
+    let color: Color
+
+    var body: some View {
+        Path { path in
+            guard let first = points.first else {
+                return
+            }
+
+            path.move(to: first)
+            for point in points.dropFirst() {
+                path.addLine(to: point)
+            }
+        }
+        .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round))
+        .frame(width: 180, height: 150)
     }
 }
