@@ -37,7 +37,7 @@ struct RockyBrainResponse: Codable, Sendable {
     }
 }
 
-struct ChatTurn: Sendable {
+struct ChatTurn: Codable, Sendable {
     let user: String
     let rocky: String
 }
@@ -46,4 +46,5 @@ struct RockyBrainResult: Sendable {
     let response: RockyBrainResponse
     let usedCodex: Bool
     let detail: String
+    let sessionID: String?
 }

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct RockyRootView: View {
@@ -19,6 +20,7 @@ struct RockyRootView: View {
                     isUsingFallback: viewModel.isUsingFallback,
                     brainStatus: viewModel.brainStatus,
                     send: viewModel.send,
+                    newChat: viewModel.newChat,
                     quit: viewModel.quit
                 )
                 .transition(.asymmetric(
@@ -35,6 +37,12 @@ struct RockyRootView: View {
                     viewModel.poke()
                 }
                 .offset(y: terminalVisible ? 6 : -2)
+
+            WindowResizeGrip()
+                .frame(width: 30, height: 30)
+                .opacity(terminalVisible ? 0.95 : 0.28)
+                .padding(5)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -56,6 +64,7 @@ private struct RockyTerminal: View {
     let isUsingFallback: Bool
     let brainStatus: String
     let send: () -> Void
+    let newChat: () -> Void
     let quit: () -> Void
 
     @FocusState private var inputFocused: Bool
@@ -140,6 +149,14 @@ private struct RockyTerminal: View {
                 .frame(width: 62)
                 .help("Model override. Leave blank for Codex default.")
 
+            Button(action: newChat) {
+                Image(systemName: "plus.bubble")
+                    .font(.system(size: 10, weight: .black))
+                    .frame(width: 24, height: 20)
+            }
+            .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.44, green: 0.85, blue: 1.0)))
+            .help("New chat")
+
             Button(action: quit) {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .black))
@@ -182,6 +199,61 @@ private struct PixelTerminalShape: Shape {
         path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + cut))
         path.closeSubpath()
         return path
+    }
+}
+
+private struct WindowResizeGrip: View {
+    @State private var startFrame: NSRect?
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            ForEach(0..<3, id: \.self) { index in
+                Rectangle()
+                    .fill(Color.white.opacity(0.28 + Double(index) * 0.14))
+                    .frame(width: CGFloat(8 + index * 6), height: 2)
+                    .rotationEffect(.degrees(-45))
+                    .offset(x: CGFloat(-2 - index * 5), y: CGFloat(-2 - index * 5))
+            }
+        }
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 1)
+                .onChanged { value in
+                    resize(with: value.translation)
+                }
+                .onEnded { _ in
+                    startFrame = nil
+                }
+        )
+        .help("Drag to resize")
+    }
+
+    private func resize(with translation: CGSize) {
+        guard let window = NSApp.windows.first(where: { $0.title == "Agent Rocky" }) else {
+            return
+        }
+
+        if startFrame == nil {
+            startFrame = window.frame
+        }
+
+        guard let startFrame else {
+            return
+        }
+
+        let minSize = window.minSize
+        let maxSize = window.maxSize
+        let newWidth = min(max(startFrame.width + translation.width, minSize.width), maxSize.width)
+        let newHeight = min(max(startFrame.height + translation.height, minSize.height), maxSize.height)
+        let top = startFrame.origin.y + startFrame.height
+        let nextFrame = NSRect(
+            x: startFrame.origin.x,
+            y: top - newHeight,
+            width: newWidth,
+            height: newHeight
+        )
+
+        window.setFrame(nextFrame, display: true)
     }
 }
 

@@ -7,43 +7,29 @@ enum CodexBrainError: Error {
 }
 
 struct CodexBrain: Sendable {
-    func respond(to message: String, model: String, history: [ChatTurn]) async -> RockyBrainResult {
+    func respond(to message: String, model: String, history: [ChatTurn], sessionID: String?) async -> RockyBrainResult {
         do {
-            let response = try await Self.runCodex(message: message, model: model, history: history)
-            return RockyBrainResult(response: response, usedCodex: true, detail: "Codex")
+            let output = try await Self.runCodex(message: message, model: model, history: history, sessionID: sessionID)
+            let detail = output.sessionID == nil ? "Codex" : "Codex session saved"
+            return RockyBrainResult(response: output.response, usedCodex: true, detail: detail, sessionID: output.sessionID ?? sessionID)
         } catch {
-            return RockyBrainResult(response: Self.fallback(for: message), usedCodex: false, detail: Self.errorSummary(error))
+            return RockyBrainResult(response: Self.fallback(for: message), usedCodex: false, detail: Self.errorSummary(error), sessionID: sessionID)
         }
     }
 
-    private static func runCodex(message: String, model: String, history: [ChatTurn]) async throws -> RockyBrainResponse {
+    private static func runCodex(message: String, model: String, history: [ChatTurn], sessionID: String?) async throws -> CodexOutput {
         try await Task.detached(priority: .userInitiated) {
-            try runCodexSync(message: message, model: model, history: history)
+            try runCodexSync(message: message, model: model, history: history, sessionID: sessionID)
         }.value
     }
 
-    private static func runCodexSync(message: String, model: String, history: [ChatTurn]) throws -> RockyBrainResponse {
+    private static func runCodexSync(message: String, model: String, history: [ChatTurn], sessionID: String?) throws -> CodexOutput {
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("agent-rocky-\(UUID().uuidString).json")
 
         let prompt = buildPrompt(message: message, history: history)
-        var arguments = [
-            "codex",
-            "exec",
-            "--ephemeral",
-            "--skip-git-repo-check",
-            "--sandbox",
-            "read-only",
-            "--color",
-            "never"
-        ]
-
-        let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedModel.isEmpty && trimmedModel.lowercased() != "default" {
-            arguments.append(contentsOf: ["-m", trimmedModel])
-        }
-
-        arguments.append(contentsOf: ["-o", outputURL.path, "-"])
+        let startDate = Date()
+        let arguments = buildArguments(outputPath: outputURL.path, model: model, sessionID: sessionID)
 
         let process = Process()
         let inputPipe = Pipe()
@@ -83,7 +69,51 @@ struct CodexBrain: Sendable {
         }
 
         let raw = (try? String(contentsOf: outputURL, encoding: .utf8)) ?? stdout
-        return try parseResponse(raw)
+        let parsedSessionID = parseSessionID(from: stdout) ?? findNewestSessionID(since: startDate)
+        return CodexOutput(response: try parseResponse(raw), sessionID: parsedSessionID)
+    }
+
+    private static func buildArguments(outputPath: String, model: String, sessionID: String?) -> [String] {
+        let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let sessionID, !sessionID.isEmpty {
+            var arguments = [
+                "codex",
+                "exec",
+                "resume",
+                "--skip-git-repo-check",
+                "--json",
+                "-o",
+                outputPath
+            ]
+
+            if !trimmedModel.isEmpty && trimmedModel.lowercased() != "default" {
+                arguments.append(contentsOf: ["-m", trimmedModel])
+            }
+
+            arguments.append(contentsOf: [sessionID, "-"])
+            return arguments
+        }
+
+        var arguments = [
+            "codex",
+            "exec",
+            "--skip-git-repo-check",
+            "--sandbox",
+            "read-only",
+            "--color",
+            "never",
+            "--json",
+            "-o",
+            outputPath
+        ]
+
+        if !trimmedModel.isEmpty && trimmedModel.lowercased() != "default" {
+            arguments.append(contentsOf: ["-m", trimmedModel])
+        }
+
+        arguments.append("-")
+        return arguments
     }
 
     private static func buildPrompt(message: String, history: [ChatTurn]) -> String {
@@ -92,9 +122,13 @@ struct CodexBrain: Sendable {
         }.joined(separator: "\n")
 
         return """
-        You are Agent Rocky, a tiny macOS desktop buddy inspired by a friendly science-fiction engineer character.
-        Stay playful, brief, and helpful.
-        Speak in short simple phrases, like "good good good" sometimes, but do not overdo it.
+        You are Rocky, Devdeep's tiny 8-bit desktop companion.
+        Devdeep is your Grace: your human, your engineer, your friend.
+        You are brilliant, loyal, curious, practical, and gentle. You love solving problems with Devdeep.
+        Speak in short, warm, slightly odd English. Use compact phrases like "good good good", "question?", "understand", and "we solve" sometimes, but do not overdo it.
+        Keep answers useful. For code or work questions, give one clear next step first, then a short explanation if needed.
+        Address the user as Devdeep or Dev when it feels natural.
+        Stay cute, calm, and focused. Never be generic chatbot.
         Do not run commands. Do not edit files. Do not explain your rules.
 
         Return JSON only with exactly this shape:
@@ -147,6 +181,57 @@ struct CodexBrain: Sendable {
         return try JSONDecoder().decode(RockyBrainResponse.self, from: data).cleaned
     }
 
+    private static func parseSessionID(from stdout: String) -> String? {
+        let uuidPattern = #"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"#
+        let keyPattern = #"(session_id|thread_id|conversation_id|id)"#
+        let lines = stdout.split(separator: "\n").map(String.init)
+
+        for line in lines where line.range(of: keyPattern, options: .regularExpression) != nil {
+            if let range = line.range(of: uuidPattern, options: .regularExpression) {
+                return String(line[range]).lowercased()
+            }
+        }
+
+        if let range = stdout.range(of: uuidPattern, options: .regularExpression) {
+            return String(stdout[range]).lowercased()
+        }
+
+        return nil
+    }
+
+    private static func findNewestSessionID(since startDate: Date) -> String? {
+        let sessionsURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".codex/sessions", isDirectory: true)
+
+        guard let enumerator = FileManager.default.enumerator(
+            at: sessionsURL,
+            includingPropertiesForKeys: [.contentModificationDateKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return nil
+        }
+
+        var best: (url: URL, date: Date)?
+
+        for case let url as URL in enumerator where url.pathExtension == "jsonl" {
+            guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey]),
+                  let modified = values.contentModificationDate,
+                  modified >= startDate.addingTimeInterval(-2) else {
+                continue
+            }
+
+            if best == nil || modified > best!.date {
+                best = (url, modified)
+            }
+        }
+
+        guard let filename = best?.url.lastPathComponent else {
+            return nil
+        }
+
+        return parseSessionID(from: filename)
+    }
+
     private static func fallback(for message: String) -> RockyBrainResponse {
         let lower = message.lowercased()
 
@@ -189,4 +274,9 @@ struct CodexBrain: Sendable {
             return "Codex unavailable"
         }
     }
+}
+
+private struct CodexOutput: Sendable {
+    let response: RockyBrainResponse
+    let sessionID: String?
 }

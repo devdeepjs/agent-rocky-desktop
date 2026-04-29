@@ -24,10 +24,15 @@ SwiftUI macOS app
       custom 8-bit character
       hover terminal
   CodexBrain
-    runs codex exec non-interactively
+    starts one persistent codex exec session
+    resumes that session for later messages
     asks for JSON only
     parses text/mood/animation
     falls back to canned response
+  RockyMemoryStore
+    saves terminal history
+    saves recent turns
+    saves active Codex session id
 ```
 
 ## Brain Contract
@@ -52,10 +57,16 @@ The app will send Codex a tight prompt:
 The command shape is:
 
 ```bash
-codex exec --ephemeral --skip-git-repo-check --sandbox read-only --color never -o /tmp/agent-rocky-response.json -
+codex exec --skip-git-repo-check --sandbox read-only --color never --json -o /tmp/agent-rocky-response.json -
 ```
 
 The app does not hardcode a model by default. It lets Codex use the user's configured model. A small optional override field exists for model names that are actually available locally.
+
+After a session id is known, the command shape becomes:
+
+```bash
+codex exec resume --skip-git-repo-check --json -o /tmp/agent-rocky-response.json <session-id> -
+```
 
 Current local evidence:
 
@@ -74,14 +85,18 @@ The reel composition is not a normal app window. It looks like:
 
 This implementation keeps the panel borderless and transparent. The visible default is just the small animated Rocky. The terminal is hidden until hover so the desktop does not look like a chat app.
 
+The bottom-right grip resizes the transparent panel by updating the AppKit window frame directly. That is necessary because a borderless panel does not expose normal macOS resize chrome.
+
+## Personality
+
+Rocky treats Devdeep as his Grace: human, engineer, and friend. The prompt asks for short, warm, slightly odd English with practical help first. Rocky can say things like `good good good`, `question?`, and `we solve`, but not so often that it becomes noise.
+
 ## Why Direct CLI First
 
-Direct `codex exec` is the smallest working path because it reuses the user's existing Codex login and model access. The experimental Codex app server and exec server can be explored later if the prototype needs streaming, session reuse, or lower latency.
+Direct `codex exec` is the smallest working path because it reuses the user's existing Codex login and model access. The app now stores the session id so normal chat does not create a fresh Codex thread every message. The experimental Codex app server and exec server can be explored later if the prototype needs streaming or lower latency.
 
 ## Deferred
 
 - Voice input.
 - macOS text-to-speech.
-- Persistent memory.
-- Codex session reuse.
 - App icon and packaged `.app` bundle.
