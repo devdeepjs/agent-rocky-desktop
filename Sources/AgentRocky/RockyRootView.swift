@@ -31,7 +31,7 @@ struct RockyRootView: View {
             }
 
             PixelRockyView(mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
-                .frame(width: 170, height: 160)
+                .frame(width: 188, height: 164)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.poke()
@@ -319,54 +319,69 @@ private struct PixelRockyView: View {
     }
 
     private func pixelBlocks(unit: CGFloat) -> [PixelBlock] {
-        let dark = Color(red: 0.17, green: 0.10, blue: 0.05)
-        let outline = Color(red: 0.08, green: 0.05, blue: 0.03)
-        let brown = Color(red: 0.53, green: 0.31, blue: 0.12)
-        let gold = Color(red: 0.86, green: 0.55, blue: 0.19)
-        let light = Color(red: 1.0, green: 0.70, blue: 0.30)
-        let teal = Color(red: 0.02, green: 0.74, blue: 0.58)
-        let eye = blink ? brown : Color(red: 0.02, green: 0.02, blue: 0.015)
+        let crack = Color(red: 0.09, green: 0.05, blue: 0.025)
+        let dark = Color(red: 0.18, green: 0.10, blue: 0.045)
+        let outline = Color(red: 0.055, green: 0.035, blue: 0.02)
+        let rust = Color(red: 0.43, green: 0.22, blue: 0.075)
+        let brown = Color(red: 0.60, green: 0.34, blue: 0.13)
+        let gold = Color(red: 0.86, green: 0.55, blue: 0.18)
+        let light = Color(red: 1.0, green: 0.74, blue: 0.34)
+        let teal = Color(red: 0.0, green: 0.76, blue: 0.62)
+        let mineral = blink ? moodAccent.opacity(0.45) : moodAccent
         let accent = moodAccent
 
         return [
-            // Back legs.
-            PixelBlock(2, 8, 1, 4, outline), PixelBlock(3, 7, 1, 4, brown), PixelBlock(1, 12, 3, 1, dark),
-            PixelBlock(15, 8, 1, 4, outline), PixelBlock(14, 7, 1, 4, brown), PixelBlock(14, 12, 3, 1, dark),
-            PixelBlock(5, 10, 1, 4, outline), PixelBlock(6, 10, 1, 4, brown), PixelBlock(5, 14, 3, 1, dark),
-            PixelBlock(12, 10, 1, 4, outline), PixelBlock(11, 10, 1, 4, brown), PixelBlock(10, 14, 3, 1, dark),
+            // Rear splayed legs.
+            PixelBlock(3, 7, 1, 3, outline), PixelBlock(2, 9, 1, 3, rust), PixelBlock(0, 12, 3, 1, outline),
+            PixelBlock(14, 7, 1, 3, outline), PixelBlock(15, 9, 1, 3, rust), PixelBlock(15, 12, 3, 1, outline),
 
-            // Raised cute arms.
-            PixelBlock(4, 4, 1, 4, outline), PixelBlock(5, 3, 1, 4, gold), PixelBlock(5, 2, 1, 1, teal),
-            PixelBlock(13, 4, 1, 4, outline), PixelBlock(12, 3, 1, 4, gold), PixelBlock(12, 2, 1, 1, teal),
+            // Middle walking legs.
+            PixelBlock(5, 10, 1, 2, outline), PixelBlock(4, 12, 1, 3, brown), PixelBlock(2, 15, 3, 1, outline),
+            PixelBlock(12, 10, 1, 2, outline), PixelBlock(13, 12, 1, 3, brown), PixelBlock(13, 15, 3, 1, outline),
 
-            // Body outline and faceted center.
+            // Front angled legs.
+            PixelBlock(6, 11, 1, 3, outline), PixelBlock(7, 13, 1, 2, rust), PixelBlock(6, 15, 3, 1, outline),
+            PixelBlock(11, 11, 1, 3, outline), PixelBlock(10, 13, 1, 2, rust), PixelBlock(9, 15, 3, 1, outline),
+
+            // Rocky-style raised grabbers.
+            PixelBlock(5, 4, 1, 3, outline), PixelBlock(4, 3, 1, 2, brown), PixelBlock(3, 2, 1, 2, gold), PixelBlock(3, 1, 1, 1, teal),
+            PixelBlock(12, 4, 1, 3, outline), PixelBlock(13, 3, 1, 2, brown), PixelBlock(14, 2, 1, 2, gold), PixelBlock(14, 1, 1, 1, teal),
+
+            // Jagged rock shell outline.
+            PixelBlock(7, 4, 4, 1, outline),
             PixelBlock(6, 5, 6, 1, outline),
             PixelBlock(5, 6, 8, 1, outline),
-            PixelBlock(4, 7, 10, 4, outline),
-            PixelBlock(5, 11, 8, 2, outline),
-            PixelBlock(6, 13, 6, 1, outline),
+            PixelBlock(4, 7, 10, 3, outline),
+            PixelBlock(5, 10, 8, 2, outline),
+            PixelBlock(6, 12, 6, 1, outline),
+            PixelBlock(7, 13, 4, 1, outline),
 
-            PixelBlock(6, 6, 6, 1, light),
-            PixelBlock(5, 7, 8, 1, gold),
-            PixelBlock(5, 8, 8, 2, brown),
-            PixelBlock(5, 10, 8, 1, gold.opacity(0.82)),
-            PixelBlock(6, 11, 6, 1, brown),
-            PixelBlock(7, 12, 4, 1, dark.opacity(0.95)),
+            // Faceted mineral body.
+            PixelBlock(7, 5, 4, 1, light),
+            PixelBlock(6, 6, 6, 1, gold),
+            PixelBlock(5, 7, 3, 2, brown),
+            PixelBlock(8, 7, 4, 1, light.opacity(0.9)),
+            PixelBlock(12, 7, 1, 2, rust),
+            PixelBlock(5, 9, 4, 1, gold.opacity(0.86)),
+            PixelBlock(9, 8, 3, 2, brown),
+            PixelBlock(12, 9, 1, 1, dark),
+            PixelBlock(6, 10, 3, 1, rust),
+            PixelBlock(9, 10, 3, 1, gold.opacity(0.78)),
+            PixelBlock(7, 11, 4, 1, brown),
+            PixelBlock(8, 12, 2, 1, dark.opacity(0.92)),
 
-            // Facet highlights.
-            PixelBlock(6, 7, 3, 1, Color.white.opacity(0.32)),
-            PixelBlock(6, 8, 2, 1, Color.white.opacity(0.18)),
-            PixelBlock(11, 8, 1, 1, dark.opacity(0.62)),
-            PixelBlock(9, 11, 2, 1, Color.black.opacity(0.2)),
+            // Asymmetric cracks, not a face.
+            PixelBlock(8, 6, 1, 2, crack.opacity(0.72)),
+            PixelBlock(9, 8, 1, 1, crack.opacity(0.82)),
+            PixelBlock(10, 9, 1, 2, crack.opacity(0.72)),
+            PixelBlock(6, 9, 2, 1, Color.white.opacity(0.18)),
+            PixelBlock(10, 7, 2, 1, Color.white.opacity(0.24)),
+            PixelBlock(11, 11, 1, 1, crack.opacity(0.8)),
 
-            // Face.
-            PixelBlock(7, 8, 1, 1, eye),
-            PixelBlock(11, 8, 1, 1, eye),
-            PixelBlock(8, 10, 3, 1, dark.opacity(0.64)),
-
-            // Mood core.
-            PixelBlock(8, 12, 2, 1, accent),
-            PixelBlock(8, 13, 2, 1, accent.opacity(0.72))
+            // Tiny mineral lights.
+            PixelBlock(6, 8, 1, 1, teal.opacity(0.88)),
+            PixelBlock(11, 9, 1, 1, mineral),
+            PixelBlock(9, 12, 1, 1, accent.opacity(0.78))
         ].enumerated().map { index, block in
             var mutable = block
             mutable.id = index
