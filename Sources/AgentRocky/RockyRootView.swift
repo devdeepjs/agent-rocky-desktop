@@ -27,11 +27,11 @@ struct RockyRootView: View {
                     insertion: .move(edge: .top).combined(with: .opacity),
                     removal: .opacity
                 ))
-                .padding(.bottom, 150)
+                .padding(.bottom, 118)
             }
 
             PixelRockyView(mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
-                .frame(width: 188, height: 164)
+                .frame(width: 138, height: 122)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.poke()
@@ -262,7 +262,7 @@ private struct PixelRockyView: View {
     let animation: RockyAnimation
     let isAwake: Bool
 
-    @State private var bounce = false
+    @State private var gaitFrame = false
     @State private var blink = false
 
     var body: some View {
@@ -273,21 +273,28 @@ private struct PixelRockyView: View {
 
             ZStack(alignment: .topLeading) {
                 shadow(unit: unit)
-                    .offset(x: originX + unit * 3.5, y: originY + unit * 14.2)
+                    .offset(x: originX + unit * 4.2, y: originY + unit * 14.4)
 
-                ForEach(pixelBlocks(unit: unit), id: \.id) { block in
+                ForEach(pixelBlocks(), id: \.id) { block in
+                    let spriteOffset = spriteOffset(for: block.motion, unit: unit)
+
                     Rectangle()
                         .fill(block.color)
                         .frame(width: block.w * unit, height: block.h * unit)
-                        .offset(x: originX + block.x * unit, y: originY + block.y * unit)
+                        .offset(
+                            x: originX + block.x * unit + spriteOffset.width,
+                            y: originY + block.y * unit + spriteOffset.height
+                        )
                 }
             }
             .offset(y: verticalMotion)
             .scaleEffect(isAwake ? 1.04 : 1.0)
-            .animation(.easeInOut(duration: 0.78).repeatForever(autoreverses: true), value: bounce)
             .animation(.easeInOut(duration: 0.16), value: isAwake)
-            .onAppear {
-                bounce = true
+            .task(id: isAwake) {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: isAwake ? .milliseconds(220) : .milliseconds(340))
+                    gaitFrame.toggle()
+                }
             }
             .task {
                 while !Task.isCancelled {
@@ -303,22 +310,41 @@ private struct PixelRockyView: View {
     private func shadow(unit: CGFloat) -> some View {
         Rectangle()
             .fill(.black.opacity(0.38))
-            .frame(width: unit * 11, height: unit * 1.2)
+            .frame(width: unit * 9.5, height: unit * 1.0)
             .blur(radius: unit * 0.4)
     }
 
     private var verticalMotion: CGFloat {
         switch animation {
         case .bounce:
-            return bounce ? -8 : -2
+            return gaitFrame ? -5 : -2
+        case .wave:
+            return gaitFrame ? -3 : -1
         case .pulse:
-            return bounce ? -4 : 1
+            return gaitFrame ? -4 : -2
+        case .shake:
+            return gaitFrame ? -1 : 1
         default:
-            return bounce ? -3 : 1
+            return gaitFrame ? -2 : 0
         }
     }
 
-    private func pixelBlocks(unit: CGFloat) -> [PixelBlock] {
+    private func spriteOffset(for motion: PixelMotion, unit: CGFloat) -> CGSize {
+        switch motion {
+        case .none:
+            return .zero
+        case .stepA:
+            return gaitFrame ? CGSize(width: -unit, height: 0) : CGSize(width: 0, height: -unit)
+        case .stepB:
+            return gaitFrame ? CGSize(width: unit, height: -unit) : .zero
+        case .grabberA:
+            return gaitFrame ? CGSize(width: 0, height: -unit) : .zero
+        case .grabberB:
+            return gaitFrame ? .zero : CGSize(width: 0, height: -unit)
+        }
+    }
+
+    private func pixelBlocks() -> [PixelBlock] {
         let crack = Color(red: 0.09, green: 0.05, blue: 0.025)
         let dark = Color(red: 0.18, green: 0.10, blue: 0.045)
         let outline = Color(red: 0.055, green: 0.035, blue: 0.02)
@@ -332,20 +358,20 @@ private struct PixelRockyView: View {
 
         return [
             // Rear splayed legs.
-            PixelBlock(3, 7, 1, 3, outline), PixelBlock(2, 9, 1, 3, rust), PixelBlock(0, 12, 3, 1, outline),
-            PixelBlock(14, 7, 1, 3, outline), PixelBlock(15, 9, 1, 3, rust), PixelBlock(15, 12, 3, 1, outline),
+            PixelBlock(3, 7, 1, 3, outline, motion: .stepA), PixelBlock(2, 9, 1, 3, rust, motion: .stepA), PixelBlock(0, 12, 3, 1, outline, motion: .stepA),
+            PixelBlock(14, 7, 1, 3, outline, motion: .stepB), PixelBlock(15, 9, 1, 3, rust, motion: .stepB), PixelBlock(15, 12, 3, 1, outline, motion: .stepB),
 
             // Middle walking legs.
-            PixelBlock(5, 10, 1, 2, outline), PixelBlock(4, 12, 1, 3, brown), PixelBlock(2, 15, 3, 1, outline),
-            PixelBlock(12, 10, 1, 2, outline), PixelBlock(13, 12, 1, 3, brown), PixelBlock(13, 15, 3, 1, outline),
+            PixelBlock(5, 10, 1, 2, outline, motion: .stepB), PixelBlock(4, 12, 1, 3, brown, motion: .stepB), PixelBlock(2, 15, 3, 1, outline, motion: .stepB),
+            PixelBlock(12, 10, 1, 2, outline, motion: .stepA), PixelBlock(13, 12, 1, 3, brown, motion: .stepA), PixelBlock(13, 15, 3, 1, outline, motion: .stepA),
 
             // Front angled legs.
-            PixelBlock(6, 11, 1, 3, outline), PixelBlock(7, 13, 1, 2, rust), PixelBlock(6, 15, 3, 1, outline),
-            PixelBlock(11, 11, 1, 3, outline), PixelBlock(10, 13, 1, 2, rust), PixelBlock(9, 15, 3, 1, outline),
+            PixelBlock(6, 11, 1, 3, outline, motion: .stepA), PixelBlock(7, 13, 1, 2, rust, motion: .stepA), PixelBlock(6, 15, 3, 1, outline, motion: .stepA),
+            PixelBlock(11, 11, 1, 3, outline, motion: .stepB), PixelBlock(10, 13, 1, 2, rust, motion: .stepB), PixelBlock(9, 15, 3, 1, outline, motion: .stepB),
 
             // Rocky-style raised grabbers.
-            PixelBlock(5, 4, 1, 3, outline), PixelBlock(4, 3, 1, 2, brown), PixelBlock(3, 2, 1, 2, gold), PixelBlock(3, 1, 1, 1, teal),
-            PixelBlock(12, 4, 1, 3, outline), PixelBlock(13, 3, 1, 2, brown), PixelBlock(14, 2, 1, 2, gold), PixelBlock(14, 1, 1, 1, teal),
+            PixelBlock(5, 4, 1, 3, outline, motion: .grabberA), PixelBlock(4, 3, 1, 2, brown, motion: .grabberA), PixelBlock(3, 2, 1, 2, gold, motion: .grabberA), PixelBlock(3, 1, 1, 1, teal, motion: .grabberA),
+            PixelBlock(12, 4, 1, 3, outline, motion: .grabberB), PixelBlock(13, 3, 1, 2, brown, motion: .grabberB), PixelBlock(14, 2, 1, 2, gold, motion: .grabberB), PixelBlock(14, 1, 1, 1, teal, motion: .grabberB),
 
             // Jagged rock shell outline.
             PixelBlock(7, 4, 4, 1, outline),
@@ -405,6 +431,14 @@ private struct PixelRockyView: View {
     }
 }
 
+private enum PixelMotion {
+    case none
+    case stepA
+    case stepB
+    case grabberA
+    case grabberB
+}
+
 private struct PixelBlock {
     var id = 0
     let x: CGFloat
@@ -412,12 +446,14 @@ private struct PixelBlock {
     let w: CGFloat
     let h: CGFloat
     let color: Color
+    let motion: PixelMotion
 
-    init(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color) {
+    init(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color, motion: PixelMotion = .none) {
         self.x = x
         self.y = y
         self.w = w
         self.h = h
         self.color = color
+        self.motion = motion
     }
 }
