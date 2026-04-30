@@ -176,6 +176,12 @@ private struct RockyTerminal: View {
                             Text(line)
                                 .id(index)
                                 .foregroundStyle(line.hasPrefix(">") ? Color(red: 0.78, green: 0.97, blue: 1.0) : Color(red: 0.63, green: 1.0, blue: 0.58))
+                                .textSelection(.enabled)
+                                .contextMenu {
+                                    Button("Copy Line") {
+                                        copyToPasteboard(line)
+                                    }
+                                }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -349,6 +355,11 @@ private struct RockyTerminal: View {
                 proxy.scrollTo(last, anchor: .bottom)
             }
         }
+    }
+
+    private func copyToPasteboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 }
 
