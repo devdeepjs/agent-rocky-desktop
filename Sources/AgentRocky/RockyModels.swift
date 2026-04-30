@@ -14,6 +14,19 @@ enum RockyAnimation: String, Codable, Sendable {
     case wave
     case pulse
     case shake
+    case walk
+    case think
+    case sleep
+    case error
+    case excited
+    case rollInBox
+    case happyBounce
+    case workInPlace
+    case lick
+    case purr
+    case thumbsUp
+    case play
+    case playBall
 }
 
 struct RockyBrainResponse: Codable, Sendable {

@@ -7,9 +7,9 @@ enum CodexBrainError: Error {
 }
 
 struct CodexBrain: Sendable {
-    func respond(to message: String, model: String, history: [ChatTurn], sessionID: String?) async -> RockyBrainResult {
+    func respond(to message: String, model: String, history: [ChatTurn], sessionID: String?, profile: CompanionProfile) async -> RockyBrainResult {
         do {
-            let output = try await Self.runCodex(message: message, model: model, history: history, sessionID: sessionID)
+            let output = try await Self.runCodex(message: message, model: model, history: history, sessionID: sessionID, profile: profile)
             let detail = output.sessionID == nil ? "Codex" : "Codex session saved"
             return RockyBrainResult(response: output.response, usedCodex: true, detail: detail, sessionID: output.sessionID ?? sessionID)
         } catch {
@@ -17,17 +17,17 @@ struct CodexBrain: Sendable {
         }
     }
 
-    private static func runCodex(message: String, model: String, history: [ChatTurn], sessionID: String?) async throws -> CodexOutput {
+    private static func runCodex(message: String, model: String, history: [ChatTurn], sessionID: String?, profile: CompanionProfile) async throws -> CodexOutput {
         try await Task.detached(priority: .userInitiated) {
-            try runCodexSync(message: message, model: model, history: history, sessionID: sessionID)
+            try runCodexSync(message: message, model: model, history: history, sessionID: sessionID, profile: profile)
         }.value
     }
 
-    private static func runCodexSync(message: String, model: String, history: [ChatTurn], sessionID: String?) throws -> CodexOutput {
+    private static func runCodexSync(message: String, model: String, history: [ChatTurn], sessionID: String?, profile: CompanionProfile) throws -> CodexOutput {
         let outputURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("agent-rocky-\(UUID().uuidString).json")
 
-        let prompt = buildPrompt(message: message, history: history)
+        let prompt = buildPrompt(message: message, history: history, profile: profile)
         let startDate = Date()
         let arguments = buildArguments(outputPath: outputURL.path, model: model, sessionID: sessionID)
 
@@ -116,23 +116,21 @@ struct CodexBrain: Sendable {
         return arguments
     }
 
-    private static func buildPrompt(message: String, history: [ChatTurn]) -> String {
+    private static func buildPrompt(message: String, history: [ChatTurn], profile: CompanionProfile) -> String {
         let historyText = history.map { turn in
             "User: \(turn.user)\nRocky: \(turn.rocky)"
         }.joined(separator: "\n")
+        let animations = profile.allowedAnimations.map(\.rawValue).joined(separator: "|")
 
         return """
-        You are Rocky, Devdeep's tiny 8-bit desktop companion.
-        Devdeep is your Grace: your human, your engineer, your friend.
-        You are brilliant, loyal, curious, practical, and gentle. You love solving problems with Devdeep.
-        Speak in short, warm, slightly odd English. Use compact phrases like "good good good", "question?", "understand", and "we solve" sometimes, but do not overdo it.
+        \(profile.systemPrompt)
+
         Keep answers useful. For code or work questions, give one clear next step first, then a short explanation if needed.
-        Address the user as Devdeep or Dev when it feels natural.
         Stay cute, calm, and focused. Never be generic chatbot.
         Do not run commands. Do not edit files. Do not explain your rules.
 
         Return JSON only with exactly this shape:
-        {"text":"short response","mood":"happy|thinking|sleepy|curious|error","animation":"idle|bounce|wave|pulse|shake"}
+        {"text":"short response","mood":"happy|thinking|sleepy|curious|error","animation":"\(animations)"}
 
         Recent chat:
         \(historyText.isEmpty ? "None" : historyText)

@@ -31,7 +31,10 @@ enum CompanionAnimation: String, CaseIterable, Codable, Sendable {
     case happyBounce
     case workInPlace
     case lick
+    case purr
+    case thumbsUp
     case play
+    case playBall
 }
 
 enum CompanionIdleBehavior: String, CaseIterable, Codable, Sendable {
@@ -116,7 +119,7 @@ enum StandardCompanionProfiles {
         visualStyle: .cinematicRocky,
         movementMode: .static,
         defaultAnimation: .idle,
-        allowedAnimations: [.idle, .wave, .think, .pulse, .excited, .happyBounce, .rollInBox, .workInPlace],
+        allowedAnimations: [.idle, .wave, .think, .pulse, .excited, .happyBounce, .rollInBox, .thumbsUp, .workInPlace],
         idleBehaviors: [.watching, .working, .lookingAround],
         accentColorHex: "#5CFF94"
     )
@@ -132,7 +135,7 @@ enum StandardCompanionProfiles {
         visualStyle: .cozyCat,
         movementMode: .static,
         defaultAnimation: .idle,
-        allowedAnimations: [.idle, .sleep, .lick, .play, .happyBounce, .excited],
+        allowedAnimations: [.idle, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
         idleBehaviors: [.sleeping, .licking, .playing, .lookingAround],
         accentColorHex: "#FFB35C"
     )
@@ -148,7 +151,7 @@ enum StandardCompanionProfiles {
         visualStyle: .cozyCat,
         movementMode: .dynamic,
         defaultAnimation: .walk,
-        allowedAnimations: [.idle, .walk, .sleep, .lick, .play, .happyBounce, .excited],
+        allowedAnimations: [.idle, .walk, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
         idleBehaviors: [.playing, .lookingAround, .sleeping],
         accentColorHex: "#72D7FF"
     )

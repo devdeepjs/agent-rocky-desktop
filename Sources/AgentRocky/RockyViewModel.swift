@@ -14,6 +14,8 @@ final class RockyViewModel: ObservableObject {
     @Published var isStageOpen = false
     @Published var activeConversationID = ""
     @Published var conversations: [RockyConversationSummary] = []
+    @Published var availableProfiles = StandardCompanionProfiles.all
+    @Published var activeProfile = StandardCompanionProfiles.rocky
     @Published var terminalLines = [
         "agent rocky v0.3",
         "hover to talk"
@@ -23,7 +25,6 @@ final class RockyViewModel: ObservableObject {
     private let memoryStore = RockyMemoryStore()
     private var history: [ChatTurn] = []
     private var codexSessionID: String?
-    private var profileID = "rocky"
     private var conversationCreatedAt = Date()
 
     private let idleLines: [RockyBrainResponse] = [
@@ -60,9 +61,10 @@ final class RockyViewModel: ObservableObject {
         let modelName = model.trimmingCharacters(in: .whitespacesAndNewlines)
         let recentHistory = Array(history.suffix(6))
         let activeSessionID = codexSessionID
+        let profile = activeProfile
 
         Task {
-            let result = await brain.respond(to: message, model: modelName, history: recentHistory, sessionID: activeSessionID)
+            let result = await brain.respond(to: message, model: modelName, history: recentHistory, sessionID: activeSessionID, profile: profile)
             history.append(ChatTurn(user: message, rocky: result.response.text))
             codexSessionID = result.sessionID ?? codexSessionID
             brainStatus = result.detail
@@ -75,7 +77,7 @@ final class RockyViewModel: ObservableObject {
     }
 
     func newChat() {
-        load(memoryStore.createConversation(profileID: profileID, model: model))
+        load(memoryStore.createConversation(profileID: activeProfile.id, model: model))
         currentText = "ready"
         mood = .curious
         animation = .idle
@@ -108,6 +110,22 @@ final class RockyViewModel: ObservableObject {
         mood = .curious
         animation = .idle
         brainStatus = codexSessionID == nil ? "Codex default" : "Codex session saved"
+    }
+
+    func switchProfile(_ id: String) {
+        guard let profile = availableProfiles.first(where: { $0.id == id }) else {
+            appendTerminal("system: unknown profile \(id)")
+            persist()
+            return
+        }
+
+        activeProfile = profile
+        if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           let defaultModel = profile.defaultModel {
+            model = defaultModel
+        }
+        appendTerminal("system: profile \(profile.name)")
+        persist()
     }
 
     func quit() {
@@ -194,6 +212,25 @@ final class RockyViewModel: ObservableObject {
             persist()
             return true
 
+        case "/profiles":
+            appendTerminal("> \(message)")
+            availableProfiles.forEach { profile in
+                let marker = profile.id == activeProfile.id ? "*" : "-"
+                appendTerminal("system: \(marker) \(profile.id) - \(profile.name)")
+            }
+            persist()
+            return true
+
+        case "/profile":
+            appendTerminal("> \(message)")
+            guard parts.count > 1 else {
+                appendTerminal("system: usage /profile rocky")
+                persist()
+                return true
+            }
+            switchProfile(parts[1])
+            return true
+
         case "/delete":
             deleteActiveChat()
             appendTerminal("system: deleted active chat")
@@ -202,7 +239,7 @@ final class RockyViewModel: ObservableObject {
 
         case "/help":
             appendTerminal("> \(message)")
-            appendTerminal("system: /open /mini /new /chats /delete")
+            appendTerminal("system: /open /mini /new /chats /delete /profiles /profile <id>")
             persist()
             return true
 
@@ -221,7 +258,7 @@ final class RockyViewModel: ObservableObject {
             createdAt: conversationCreatedAt,
             updatedAt: Date(),
             codexSessionID: codexSessionID,
-            profileID: profileID,
+            profileID: activeProfile.id,
             model: model,
             terminalLines: terminalLines,
             history: history
@@ -236,7 +273,7 @@ final class RockyViewModel: ObservableObject {
         activeConversationID = conversation.id
         conversations = state.summaries
         codexSessionID = conversation.codexSessionID
-        profileID = conversation.profileID
+        activeProfile = availableProfiles.first(where: { $0.id == conversation.profileID }) ?? StandardCompanionProfiles.rocky
         conversationCreatedAt = conversation.createdAt
         model = conversation.model
         history = conversation.history

@@ -20,12 +20,15 @@ struct RockyRootView: View {
                     isUsingFallback: viewModel.isUsingFallback,
                     brainStatus: viewModel.brainStatus,
                     isStageOpen: viewModel.isStageOpen,
+                    activeProfile: viewModel.activeProfile,
+                    availableProfiles: viewModel.availableProfiles,
                     conversations: viewModel.conversations,
                     activeConversationID: viewModel.activeConversationID,
                     send: viewModel.send,
                     newChat: viewModel.newChat,
                     openStage: viewModel.openStage,
                     closeStage: viewModel.closeStage,
+                    switchProfile: viewModel.switchProfile,
                     selectChat: viewModel.selectChat,
                     deleteChat: viewModel.deleteActiveChat,
                     quit: viewModel.quit
@@ -102,12 +105,15 @@ private struct RockyTerminal: View {
     let isUsingFallback: Bool
     let brainStatus: String
     let isStageOpen: Bool
+    let activeProfile: CompanionProfile
+    let availableProfiles: [CompanionProfile]
     let conversations: [RockyConversationSummary]
     let activeConversationID: String
     let send: () -> Void
     let newChat: () -> Void
     let openStage: () -> Void
     let closeStage: () -> Void
+    let switchProfile: (String) -> Void
     let selectChat: (String) -> Void
     let deleteChat: () -> Void
     let quit: () -> Void
@@ -190,7 +196,7 @@ private struct RockyTerminal: View {
                 .shadow(color: isUsingFallback ? .red.opacity(0.7) : .green.opacity(0.7), radius: 5)
                 .help(brainStatus)
 
-            Text("agent-rocky.term")
+            Text(activeProfile.name.lowercased().replacingOccurrences(of: " ", with: "-") + ".term")
                 .foregroundStyle(Color(red: 0.78, green: 1.0, blue: 0.72))
 
             Spacer()
@@ -208,6 +214,26 @@ private struct RockyTerminal: View {
             }
             .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.78, green: 0.68, blue: 1.0)))
             .help(isStageOpen ? "Mini mode" : "Open stage")
+
+            Menu {
+                ForEach(availableProfiles) { profile in
+                    Button {
+                        switchProfile(profile.id)
+                    } label: {
+                        Label(
+                            profile.name,
+                            systemImage: profile.id == activeProfile.id ? "checkmark.circle.fill" : "person.crop.circle"
+                        )
+                    }
+                }
+            } label: {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 10, weight: .black))
+                    .frame(width: 24, height: 20)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Profiles")
 
             Menu {
                 if conversations.isEmpty {
