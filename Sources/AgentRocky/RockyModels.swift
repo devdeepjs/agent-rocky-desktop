@@ -65,6 +65,101 @@ struct RockyBrainResponse: Codable, Sendable {
             animation: RockyAnimation(companion: profile.animationOrDefault(companionAnimation))
         )
     }
+
+    func applyingMessageAnimationHint(for message: String, profile: CompanionProfile) -> RockyBrainResponse {
+        guard let animation = Self.messageAnimationHint(for: message, profile: profile) else {
+            return self
+        }
+
+        return RockyBrainResponse(
+            text: text,
+            mood: Self.mood(for: animation),
+            animation: RockyAnimation(companion: animation)
+        )
+    }
+
+    static func messageAnimationHint(for message: String, profile: CompanionProfile) -> CompanionAnimation? {
+        let lower = message.lowercased()
+
+        if containsAny(lower, [
+            "wish me luck",
+            "best of luck",
+            "good luck",
+            "going to office",
+            "going office",
+            "heading to office",
+            "interview",
+            "exam",
+            "presentation",
+            "demo today"
+        ]) {
+            return firstAllowed([.thumbsUp, .happyBounce, .excited], for: profile)
+        }
+
+        if containsAny(lower, [
+            "good news",
+            "great news",
+            "big news",
+            "i did it",
+            "we did it",
+            "we won",
+            "i won",
+            "got promoted",
+            "promotion",
+            "passed",
+            "success",
+            "shipped",
+            "it worked",
+            "fixed it",
+            "celebrate"
+        ]) {
+            return firstAllowed([.excited, .happyBounce], for: profile)
+        }
+
+        if containsAny(lower, [
+            "do this",
+            "do it",
+            "task",
+            "work on",
+            "help me with",
+            "make ",
+            "build ",
+            "create ",
+            "implement",
+            "fix ",
+            "debug",
+            "review ",
+            "write ",
+            "test "
+        ]) {
+            return firstAllowed([.rollInBox, .workInPlace, .think], for: profile)
+        }
+
+        return nil
+    }
+
+    private static func containsAny(_ text: String, _ needles: [String]) -> Bool {
+        needles.contains { text.contains($0) }
+    }
+
+    private static func firstAllowed(_ animations: [CompanionAnimation], for profile: CompanionProfile) -> CompanionAnimation? {
+        animations.first { profile.allowedAnimations.contains($0) }
+    }
+
+    private static func mood(for animation: CompanionAnimation) -> RockyMood {
+        switch animation {
+        case .sleep:
+            return .sleepy
+        case .think, .workInPlace:
+            return .thinking
+        case .error:
+            return .error
+        case .happyBounce, .excited, .thumbsUp, .rollInBox:
+            return .happy
+        case .idle, .pulse, .walk, .wave, .play, .playBall, .lick, .purr:
+            return .curious
+        }
+    }
 }
 
 struct ChatTurn: Codable, Equatable, Sendable {

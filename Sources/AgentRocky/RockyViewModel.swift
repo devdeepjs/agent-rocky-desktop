@@ -66,7 +66,9 @@ final class RockyViewModel: ObservableObject {
 
         Task {
             let result = await brain.respond(to: message, model: modelName, history: recentHistory, sessionID: activeSessionID, profile: profile)
-            let response = result.response.validated(for: profile)
+            let response = result.response
+                .validated(for: profile)
+                .applyingMessageAnimationHint(for: message, profile: profile)
             history.append(ChatTurn(user: message, rocky: response.text))
             codexSessionID = result.sessionID ?? codexSessionID
             brainStatus = result.detail

@@ -183,9 +183,16 @@ private struct RockyTerminal: View {
                     .padding(.vertical, 10)
                 }
                 .onChange(of: lines.count) { _, _ in
-                    if let last = lines.indices.last {
-                        proxy.scrollTo(last, anchor: .bottom)
-                    }
+                    scrollToBottom(proxy)
+                }
+                .onChange(of: activeConversationID) { _, _ in
+                    scrollToBottom(proxy)
+                }
+                .onChange(of: isStageOpen) { _, _ in
+                    scrollToBottom(proxy)
+                }
+                .onAppear {
+                    scrollToBottom(proxy)
                 }
             }
 
@@ -334,6 +341,14 @@ private struct RockyTerminal: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Color(red: 0.04, green: 0.12, blue: 0.07).opacity(0.96))
+    }
+
+    private func scrollToBottom(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.async {
+            if let last = lines.indices.last {
+                proxy.scrollTo(last, anchor: .bottom)
+            }
+        }
     }
 }
 

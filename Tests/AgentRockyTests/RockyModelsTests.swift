@@ -42,4 +42,40 @@ final class RockyModelsTests: XCTestCase {
 
         XCTAssertEqual(validated.animation, .idle)
     }
+
+    func testMessageHintUsesThumbsUpForLuck() {
+        let hint = RockyBrainResponse.messageAnimationHint(
+            for: "Going to office, wish me luck",
+            profile: StandardCompanionProfiles.rocky
+        )
+
+        XCTAssertEqual(hint, .thumbsUp)
+    }
+
+    func testMessageHintUsesExcitedForGoodNews() {
+        let hint = RockyBrainResponse.messageAnimationHint(
+            for: "Good news mate, we shipped it",
+            profile: StandardCompanionProfiles.rocky
+        )
+
+        XCTAssertEqual(hint, .excited)
+    }
+
+    func testMessageHintUsesWorkAnimationForTasks() {
+        let hint = RockyBrainResponse.messageAnimationHint(
+            for: "Can you implement this task",
+            profile: StandardCompanionProfiles.rocky
+        )
+
+        XCTAssertEqual(hint, .rollInBox)
+    }
+
+    func testMessageHintFallsBackToAllowedProfileAnimations() {
+        let hint = RockyBrainResponse.messageAnimationHint(
+            for: "Good news mate, we shipped it",
+            profile: StandardCompanionProfiles.orangeCat
+        )
+
+        XCTAssertEqual(hint, .excited)
+    }
 }
