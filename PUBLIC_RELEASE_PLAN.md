@@ -87,29 +87,31 @@ Done criteria:
 - Selecting an old chat resumes with its stored Codex session id.
 - Unit tests cover load, save, migrate old `memory.json`, create new chat, and delete chat.
 
-## Phase 2: Profiles
+## Phase 2: Companion Profiles
 
-Profiles should be app-level configuration, not hardcoded prompt branches.
+Profiles should be app-level configuration, not hardcoded prompt branches. The project is not only Rocky. It should support any small companion: Rocky-like alien, cat, focus buddy, or user-defined custom creature.
 
 Profile fields:
 
 - `id`
 - `name`
+- `kind`
 - `systemPrompt`
 - `defaultModel`
 - `visualStyle`
+- `movementMode`
 - `defaultAnimation`
 - `allowedAnimations`
+- `idleBehaviors`
 - `accentColor`
 - `temperatureStyle`
 
 Bundled standard profiles:
 
 - `rocky` - loyal, odd, practical companion.
-- `pair-programmer` - direct engineering helper.
-- `quiet-focus` - very short, low-noise desk buddy.
-- `rubber-duck` - asks clarifying questions first.
-- `debugger` - bug-first, evidence-first responses.
+- `desk-cat` - cozy cat that sleeps, licks, and plays in place.
+- `wander-cat` - dynamic cat that can move around the screen.
+- `focus-buddy` - direct low-noise work companion.
 
 Custom profile behavior:
 
@@ -117,6 +119,7 @@ Custom profile behavior:
 - Invalid profiles are ignored with a visible warning in the app.
 - Profile selector changes both prompt and visual style.
 - Conversation stores which profile it used.
+- Any valid animation can be used with any profile, but the profile can restrict its allowed set.
 
 Done criteria:
 
@@ -124,6 +127,7 @@ Done criteria:
 - Custom profiles override/add without editing source code.
 - Invalid custom JSON cannot crash the app.
 - UI can switch profile for a new chat.
+- Profile can choose static or dynamic movement.
 
 ## Phase 3: Animation Registry
 
@@ -139,6 +143,11 @@ Standard animations:
 - `sleep`
 - `error`
 - `excited`
+- `rollInBox`
+- `happyBounce`
+- `workInPlace`
+- `lick`
+- `play`
 
 Required behavior:
 
@@ -146,12 +155,17 @@ Required behavior:
 - Brain response is validated before touching UI.
 - Unknown animation falls back to profile default.
 - Visual style can map the same animation name differently.
+- Static mode animates in place.
+- Dynamic mode can move the companion across the screen with bounds and collision safety.
+- Idle mode randomly chooses profile-safe idle behaviors like sleeping, licking, playing, looking around, or working.
 
 Done criteria:
 
 - Pixel style and cinematic style can both exist.
 - Any profile can use any valid animation.
 - Bad brain output cannot break rendering.
+- Dynamic movement never pushes the terminal fully off-screen.
+- Idle behaviors run without starting a Codex request.
 
 ## Phase 4: Testing
 
@@ -164,6 +178,7 @@ Minimum public test suite:
 - Conversation create/select/delete.
 - Profile load and validation.
 - Animation validation fallback.
+- Static vs dynamic movement config.
 
 Manual tests:
 
@@ -175,6 +190,7 @@ Manual tests:
 - Resume old chat.
 - Create new chat.
 - Switch profile.
+- Switch static/dynamic movement.
 - Resize terminal.
 
 ## Phase 5: Packaging
@@ -199,15 +215,20 @@ Only after core state is stable:
 - Keyboard shortcut to open terminal.
 - Accessibility labels for buttons.
 - Clear troubleshooting page for Codex CLI auth and model selection.
+- Companion playground for previewing profile + animation combinations.
+- Per-profile idle schedule, for example cat sleeps after inactivity.
+- Safe dynamic movement zones so the companion does not hide under the Dock or menu bar.
 
 ## Recommended Execution Order
 
 1. Public hygiene and README cleanup.
 2. Conversation store and old-chat picker.
-3. Unit test harness.
-4. Profile schema and bundled profiles.
+3. Companion profile schema and bundled Rocky/cat/focus profiles.
+4. Unit test harness for profiles, animation validation, and memory.
 5. Animation registry and visual-style selector.
-6. Manual QA pass on close/reopen, new chat, old chat, resize, and fallback.
-7. Demo screenshot/GIF.
-8. Push public source repo.
-9. Package `.app` only after early users can run source reliably.
+6. Static/dynamic movement engine.
+7. Idle behavior scheduler.
+8. Manual QA pass on close/reopen, new chat, old chat, resize, profile switch, movement mode, and fallback.
+9. Demo screenshot/GIF.
+10. Push public source repo.
+11. Package `.app` only after early users can run source reliably.
