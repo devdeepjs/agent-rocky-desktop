@@ -10,18 +10,20 @@ final class CompanionConfigTests: XCTestCase {
         }
     }
 
-    func testStandardProfilesIncludeRockyAndCats() {
+    func testStandardProfilesIncludeBundledCompanions() {
         let ids = Set(StandardCompanionProfiles.all.map(\.id))
 
-        XCTAssertEqual(ids.count, 3)
+        XCTAssertEqual(ids.count, 4)
         XCTAssertTrue(ids.contains("rocky"))
         XCTAssertTrue(ids.contains("orange-cat"))
         XCTAssertTrue(ids.contains("cute-buddy"))
+        XCTAssertTrue(ids.contains("tron"))
     }
 
     func testProfilesHaveDefaultMovementModes() {
         XCTAssertEqual(StandardCompanionProfiles.rocky.movementMode, .static)
         XCTAssertEqual(StandardCompanionProfiles.orangeCat.movementMode, .static)
+        XCTAssertEqual(StandardCompanionProfiles.tron.movementMode, .static)
     }
 
     func testAnimationFallsBackToDefaultWhenNotAllowed() {

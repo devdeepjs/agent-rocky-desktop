@@ -37,7 +37,7 @@ Type these in the terminal:
 /animate purr      run a profile-safe animation
 ```
 
-Bundled profiles currently include `rocky`, `orange-cat`, and `cute-buddy`.
+Bundled profiles currently include `rocky`, `orange-cat`, `cute-buddy`, and `tron`.
 
 ## Brain
 

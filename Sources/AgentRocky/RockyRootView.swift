@@ -482,6 +482,8 @@ private struct CompanionCreatureView: View {
             OrangePixelCatView(mood: mood, animation: animation, isAwake: isAwake)
         case .cuteBuddy:
             CuteBuddyView(mood: mood, animation: animation, isAwake: isAwake)
+        case .tronAnime:
+            TronAnimeBuddyView(mood: mood, animation: animation, isAwake: isAwake)
         default:
             RockyCreatureView(mood: mood, animation: animation, isAwake: isAwake)
         }
@@ -738,6 +740,201 @@ private struct CuteBuddyView: View {
         .animation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true), value: pulse)
         .onAppear {
             pulse = true
+        }
+    }
+}
+
+private struct TronAnimeBuddyView: View {
+    let mood: RockyMood
+    let animation: RockyAnimation
+    let isAwake: Bool
+
+    @State private var pulse = false
+    @State private var blink = false
+
+    private let cyan = Color(red: 0.20, green: 0.96, blue: 1.0)
+    private let orange = Color(red: 1.0, green: 0.48, blue: 0.20)
+    private let bodyDark = Color(red: 0.025, green: 0.035, blue: 0.055)
+
+    var body: some View {
+        ZStack {
+            Ellipse()
+                .fill(cyan.opacity(pulse ? 0.20 : 0.10))
+                .frame(width: 108, height: 18)
+                .blur(radius: 4)
+                .offset(y: 58)
+
+            dataHalo
+                .offset(y: pulse ? -8 : -4)
+
+            lightTrail
+                .opacity(animation == .pulse || animation == .workInPlace || animation == .think ? 0.95 : 0.36)
+                .offset(y: pulse ? -2 : 2)
+
+            legs
+                .offset(y: pulse ? -2 : 1)
+
+            bodyCore
+                .offset(y: verticalMotion)
+
+            head
+                .offset(y: verticalMotion - 42)
+
+            if animation == .happyBounce || animation == .excited {
+                neonHeart
+                    .offset(x: 44, y: pulse ? -60 : -52)
+            }
+
+            if animation == .thumbsUp {
+                saluteArm
+                    .offset(y: pulse ? -4 : 0)
+            }
+        }
+        .scaleEffect(isAwake ? 1.05 : 1.0)
+        .animation(.easeInOut(duration: 0.52).repeatForever(autoreverses: true), value: pulse)
+        .animation(.easeInOut(duration: 0.16), value: isAwake)
+        .onAppear {
+            pulse = true
+        }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(3.0))
+                blink = true
+                try? await Task.sleep(for: .milliseconds(150))
+                blink = false
+            }
+        }
+    }
+
+    private var verticalMotion: CGFloat {
+        switch animation {
+        case .happyBounce, .excited:
+            return pulse ? -9 : -2
+        case .think, .pulse, .workInPlace:
+            return pulse ? -5 : -1
+        case .thumbsUp, .wave:
+            return pulse ? -6 : -2
+        default:
+            return pulse ? -4 : 0
+        }
+    }
+
+    private var dataHalo: some View {
+        ZStack {
+            Circle()
+                .trim(from: 0.08, to: 0.84)
+                .stroke(cyan.opacity(0.62), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [10, 6]))
+                .frame(width: 118, height: 118)
+                .rotationEffect(.degrees(pulse ? 10 : -8))
+
+            Circle()
+                .trim(from: 0.58, to: 0.96)
+                .stroke(orange.opacity(0.76), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                .frame(width: 88, height: 88)
+                .rotationEffect(.degrees(pulse ? -18 : 14))
+        }
+    }
+
+    private var lightTrail: some View {
+        VStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(index == 1 ? orange.opacity(0.68) : cyan.opacity(0.62))
+                    .frame(width: CGFloat(76 - index * 18), height: 3)
+                    .offset(x: CGFloat(index * 10 - 8))
+            }
+        }
+        .offset(y: 18)
+    }
+
+    private var legs: some View {
+        HStack(spacing: 28) {
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(bodyDark)
+                .frame(width: 12, height: 32)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(cyan.opacity(0.78), lineWidth: 1.6))
+                .rotationEffect(.degrees(pulse ? 6 : -4))
+
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(bodyDark)
+                .frame(width: 12, height: 32)
+                .overlay(RoundedRectangle(cornerRadius: 4).stroke(cyan.opacity(0.78), lineWidth: 1.6))
+                .rotationEffect(.degrees(pulse ? -6 : 4))
+        }
+        .offset(y: 42)
+    }
+
+    private var bodyCore: some View {
+        VStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 0.05, green: 0.07, blue: 0.11), bodyDark],
+                    startPoint: .top,
+                    endPoint: .bottom
+                ))
+                .frame(width: 62, height: 66)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(cyan.opacity(0.78), lineWidth: 2))
+                .overlay(
+                    VStack(spacing: 8) {
+                        Capsule()
+                            .fill(cyan.opacity(pulse ? 0.90 : 0.54))
+                            .frame(width: 28, height: 3)
+                        Circle()
+                            .fill(orange.opacity(mood == .happy ? 0.94 : 0.50))
+                            .frame(width: 9, height: 9)
+                            .shadow(color: orange.opacity(0.56), radius: 7)
+                    }
+                )
+        }
+        .shadow(color: cyan.opacity(0.30), radius: pulse ? 16 : 9)
+        .offset(y: 12)
+    }
+
+    private var head: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(LinearGradient(
+                    colors: [Color(red: 0.06, green: 0.08, blue: 0.14), Color(red: 0.01, green: 0.015, blue: 0.03)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ))
+                .frame(width: 76, height: 58)
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(cyan.opacity(0.86), lineWidth: 2.4))
+                .shadow(color: cyan.opacity(0.45), radius: pulse ? 14 : 8)
+
+            Capsule()
+                .fill(cyan.opacity(blink || animation == .sleep ? 0.38 : 0.88))
+                .frame(width: 42, height: blink || animation == .sleep ? 3 : 9)
+                .shadow(color: cyan.opacity(0.72), radius: 7)
+
+            Capsule()
+                .fill(orange.opacity(0.78))
+                .frame(width: 16, height: 3)
+                .offset(y: 18)
+        }
+    }
+
+    private var neonHeart: some View {
+        HeartShape()
+            .stroke(orange.opacity(0.92), style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
+            .frame(width: 18, height: 16)
+            .shadow(color: orange.opacity(0.66), radius: 8)
+    }
+
+    private var saluteArm: some View {
+        ZStack {
+            Capsule()
+                .fill(bodyDark)
+                .frame(width: 9, height: 42)
+                .overlay(Capsule().stroke(cyan.opacity(0.82), lineWidth: 1.4))
+                .rotationEffect(.degrees(-42))
+                .offset(x: 41, y: -22)
+
+            Circle()
+                .fill(orange.opacity(0.92))
+                .frame(width: 11, height: 11)
+                .offset(x: 55, y: -39)
+                .shadow(color: orange.opacity(0.72), radius: 8)
         }
     }
 }
