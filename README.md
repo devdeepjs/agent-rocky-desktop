@@ -22,6 +22,23 @@ Run `swift build && swift run` if you want both in one line. Do not use `swift b
 
 The app opens a transparent floating companion near the Dock. By default only the character is visible. Hover over it to open the tiny terminal, type, and press enter.
 
+## Commands
+
+Type these in the terminal:
+
+```text
+/open              open larger stage mode
+/mini              return to small buddy mode
+/new               create a new chat
+/chats             list recent chats
+/profiles          list bundled profiles
+/profile desk-cat  switch companion profile
+/mode dynamic      switch to a dynamic profile when available
+/animate purr      run a profile-safe animation
+```
+
+Bundled profiles currently include `rocky`, `desk-cat`, `wander-cat`, and `focus-buddy`.
+
 ## Brain
 
 The first message starts a persistent Codex session without a hardcoded model by default:
@@ -36,7 +53,7 @@ Later messages resume the saved session:
 codex exec resume --skip-git-repo-check --json -o /tmp/agent-rocky-response.json <session-id> -
 ```
 
-Terminal history, recent turns, and the active Codex session id are saved under Application Support as `AgentRocky/memory.json`. Use the plus-bubble button in the terminal title bar to start a new chat and clear that saved session.
+Terminal history, recent turns, and Codex session ids are saved under Application Support as `AgentRocky/conversations/*.json`. Use the plus-bubble button in the terminal title bar to start a new chat without deleting older chats.
 
 The model field is only an override. Leave it blank to let Codex use the user's configured default model.
 
