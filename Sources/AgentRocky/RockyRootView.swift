@@ -773,9 +773,9 @@ private struct RockyCreatureView: View {
     private var shadow: some View {
         Ellipse()
             .fill(.black.opacity(0.34))
-            .frame(width: 106, height: 17)
+            .frame(width: 128, height: 18)
             .blur(radius: 4)
-            .offset(x: 37, y: 123)
+            .offset(x: 26, y: 126)
     }
 
     private var showsGraceHalo: Bool {
@@ -807,9 +807,9 @@ private struct RockyCreatureView: View {
     private var shellGradient: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 0.98, green: 0.66, blue: 0.28),
-                Color(red: 0.63, green: 0.34, blue: 0.12),
-                Color(red: 0.24, green: 0.13, blue: 0.06)
+                Color(red: 1.0, green: 0.69, blue: 0.36),
+                Color(red: 0.73, green: 0.39, blue: 0.16),
+                Color(red: 0.30, green: 0.15, blue: 0.06)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -819,24 +819,24 @@ private struct RockyCreatureView: View {
     private var backLimbs: some View {
         Group {
             RockyLimb(
-                resting: [CGPoint(x: 68, y: 72), CGPoint(x: 46, y: 80), CGPoint(x: 27, y: 111)],
-                stepping: [CGPoint(x: 68, y: 72), CGPoint(x: 43, y: 76), CGPoint(x: 22, y: 104)],
+                resting: [CGPoint(x: 58, y: 80), CGPoint(x: 31, y: 92), CGPoint(x: 17, y: 126)],
+                stepping: [CGPoint(x: 58, y: 80), CGPoint(x: 28, y: 86), CGPoint(x: 14, y: 118)],
                 active: gaitFrame,
-                lineWidth: 8,
+                lineWidth: 8.6,
                 tint: Color(red: 0.46, green: 0.25, blue: 0.10)
             )
             RockyLimb(
-                resting: [CGPoint(x: 112, y: 72), CGPoint(x: 135, y: 81), CGPoint(x: 154, y: 112)],
-                stepping: [CGPoint(x: 112, y: 72), CGPoint(x: 137, y: 77), CGPoint(x: 159, y: 105)],
+                resting: [CGPoint(x: 121, y: 80), CGPoint(x: 150, y: 94), CGPoint(x: 164, y: 126)],
+                stepping: [CGPoint(x: 121, y: 80), CGPoint(x: 153, y: 88), CGPoint(x: 167, y: 118)],
                 active: !gaitFrame,
-                lineWidth: 8,
+                lineWidth: 8.6,
                 tint: Color(red: 0.46, green: 0.25, blue: 0.10)
             )
             RockyLimb(
-                resting: [CGPoint(x: 90, y: 96), CGPoint(x: 86, y: 118), CGPoint(x: 79, y: 139)],
-                stepping: [CGPoint(x: 90, y: 96), CGPoint(x: 92, y: 116), CGPoint(x: 101, y: 139)],
+                resting: [CGPoint(x: 91, y: 101), CGPoint(x: 84, y: 124), CGPoint(x: 72, y: 143)],
+                stepping: [CGPoint(x: 91, y: 101), CGPoint(x: 94, y: 123), CGPoint(x: 108, y: 143)],
                 active: gaitFrame,
-                lineWidth: 7.2,
+                lineWidth: 7.8,
                 tint: Color(red: 0.40, green: 0.21, blue: 0.08)
             )
         }
@@ -845,49 +845,66 @@ private struct RockyCreatureView: View {
     private var frontLimbs: some View {
         Group {
             RockyLimb(
-                resting: [CGPoint(x: 65, y: 90), CGPoint(x: 45, y: 101), CGPoint(x: 33, y: 133)],
-                stepping: [CGPoint(x: 65, y: 90), CGPoint(x: 50, y: 103), CGPoint(x: 48, y: 135)],
+                resting: [CGPoint(x: 64, y: 94), CGPoint(x: 41, y: 110), CGPoint(x: 31, y: 143)],
+                stepping: [CGPoint(x: 64, y: 94), CGPoint(x: 50, y: 111), CGPoint(x: 55, y: 143)],
                 active: !gaitFrame,
-                lineWidth: 8.5,
+                lineWidth: 9.2,
                 tint: Color(red: 0.62, green: 0.36, blue: 0.15)
             )
             RockyLimb(
-                resting: [CGPoint(x: 115, y: 90), CGPoint(x: 136, y: 102), CGPoint(x: 147, y: 133)],
-                stepping: [CGPoint(x: 115, y: 90), CGPoint(x: 131, y: 104), CGPoint(x: 132, y: 135)],
+                resting: [CGPoint(x: 116, y: 94), CGPoint(x: 139, y: 110), CGPoint(x: 149, y: 143)],
+                stepping: [CGPoint(x: 116, y: 94), CGPoint(x: 130, y: 112), CGPoint(x: 125, y: 143)],
                 active: gaitFrame,
-                lineWidth: 8.5,
+                lineWidth: 9.2,
                 tint: Color(red: 0.62, green: 0.36, blue: 0.15)
             )
-            RockyLimb(
-                resting: [CGPoint(x: 70, y: 57), CGPoint(x: 52, y: 40), CGPoint(x: 42, y: 19)],
-                stepping: [CGPoint(x: 70, y: 57), CGPoint(x: 49, y: 36), CGPoint(x: 38, y: 15)],
-                active: gaitFrame,
-                lineWidth: 7.2,
-                tint: Color(red: 0.72, green: 0.43, blue: 0.17),
-                tipColor: moodAccent
-            )
-            RockyLimb(
-                resting: [CGPoint(x: 110, y: 57), CGPoint(x: 129, y: 40), CGPoint(x: 139, y: 19)],
-                stepping: [CGPoint(x: 110, y: 57), CGPoint(x: 132, y: 36), CGPoint(x: 143, y: 15)],
-                active: !gaitFrame,
-                lineWidth: 7.2,
-                tint: Color(red: 0.72, green: 0.43, blue: 0.17),
-                tipColor: moodAccent
-            )
+
+            if showsGraceHalo {
+                RockyLimb(
+                    resting: [CGPoint(x: 63, y: 62), CGPoint(x: 38, y: 57), CGPoint(x: 24, y: 75)],
+                    stepping: [CGPoint(x: 63, y: 62), CGPoint(x: 35, y: 51), CGPoint(x: 20, y: 67)],
+                    active: gaitFrame,
+                    lineWidth: 7.2,
+                    tint: Color(red: 0.72, green: 0.43, blue: 0.17),
+                    tipColor: moodAccent
+                )
+                RockyPeaceArm(
+                    active: gaitFrame,
+                    tint: Color(red: 0.72, green: 0.43, blue: 0.17),
+                    accent: moodAccent
+                )
+            } else {
+                RockyLimb(
+                    resting: [CGPoint(x: 63, y: 62), CGPoint(x: 39, y: 58), CGPoint(x: 25, y: 76)],
+                    stepping: [CGPoint(x: 63, y: 62), CGPoint(x: 35, y: 54), CGPoint(x: 21, y: 70)],
+                    active: gaitFrame,
+                    lineWidth: 7.2,
+                    tint: Color(red: 0.72, green: 0.43, blue: 0.17),
+                    tipColor: moodAccent
+                )
+                RockyLimb(
+                    resting: [CGPoint(x: 116, y: 62), CGPoint(x: 141, y: 57), CGPoint(x: 155, y: 75)],
+                    stepping: [CGPoint(x: 116, y: 62), CGPoint(x: 145, y: 53), CGPoint(x: 160, y: 68)],
+                    active: !gaitFrame,
+                    lineWidth: 7.2,
+                    tint: Color(red: 0.72, green: 0.43, blue: 0.17),
+                    tipColor: moodAccent
+                )
+            }
         }
     }
 
     private var facets: some View {
         Group {
-            RockyFacet(points: [CGPoint(x: 61, y: 47), CGPoint(x: 89, y: 37), CGPoint(x: 96, y: 70), CGPoint(x: 67, y: 75)], color: Color(red: 1.0, green: 0.73, blue: 0.34).opacity(0.72))
-            RockyFacet(points: [CGPoint(x: 92, y: 38), CGPoint(x: 121, y: 49), CGPoint(x: 111, y: 76), CGPoint(x: 96, y: 70)], color: Color(red: 0.78, green: 0.42, blue: 0.16).opacity(0.68))
-            RockyFacet(points: [CGPoint(x: 48, y: 70), CGPoint(x: 67, y: 75), CGPoint(x: 73, y: 109), CGPoint(x: 53, y: 97)], color: Color(red: 0.35, green: 0.18, blue: 0.07).opacity(0.46))
-            RockyFacet(points: [CGPoint(x: 67, y: 75), CGPoint(x: 96, y: 70), CGPoint(x: 102, y: 111), CGPoint(x: 73, y: 109)], color: Color(red: 0.66, green: 0.36, blue: 0.14).opacity(0.62))
-            RockyFacet(points: [CGPoint(x: 96, y: 70), CGPoint(x: 131, y: 73), CGPoint(x: 124, y: 99), CGPoint(x: 102, y: 111)], color: Color(red: 0.24, green: 0.12, blue: 0.05).opacity(0.45))
-            RockyLine(points: [CGPoint(x: 87, y: 41), CGPoint(x: 95, y: 70), CGPoint(x: 103, y: 110)], lineWidth: 2.0, color: Color.black.opacity(0.28))
-            RockyLine(points: [CGPoint(x: 60, y: 68), CGPoint(x: 95, y: 70), CGPoint(x: 126, y: 74)], lineWidth: 1.8, color: Color.white.opacity(0.18))
-            RockyLine(points: [CGPoint(x: 76, y: 55), CGPoint(x: 82, y: 66), CGPoint(x: 77, y: 80)], lineWidth: 1.6, color: Color(red: 0.07, green: 0.04, blue: 0.02).opacity(0.5))
-            RockyLine(points: [CGPoint(x: 113, y: 58), CGPoint(x: 106, y: 76), CGPoint(x: 112, y: 91)], lineWidth: 1.8, color: Color(red: 0.07, green: 0.04, blue: 0.02).opacity(0.56))
+            RockyFacet(points: [CGPoint(x: 49, y: 58), CGPoint(x: 85, y: 34), CGPoint(x: 94, y: 71), CGPoint(x: 61, y: 83)], color: Color(red: 1.0, green: 0.76, blue: 0.42).opacity(0.72))
+            RockyFacet(points: [CGPoint(x: 85, y: 34), CGPoint(x: 119, y: 42), CGPoint(x: 133, y: 69), CGPoint(x: 94, y: 71)], color: Color(red: 0.78, green: 0.43, blue: 0.18).opacity(0.70))
+            RockyFacet(points: [CGPoint(x: 39, y: 78), CGPoint(x: 61, y: 83), CGPoint(x: 76, y: 119), CGPoint(x: 53, y: 108)], color: Color(red: 0.34, green: 0.17, blue: 0.07).opacity(0.50))
+            RockyFacet(points: [CGPoint(x: 61, y: 83), CGPoint(x: 94, y: 71), CGPoint(x: 110, y: 115), CGPoint(x: 76, y: 119)], color: Color(red: 0.70, green: 0.38, blue: 0.15).opacity(0.68))
+            RockyFacet(points: [CGPoint(x: 94, y: 71), CGPoint(x: 135, y: 70), CGPoint(x: 130, y: 97), CGPoint(x: 110, y: 115)], color: Color(red: 0.25, green: 0.12, blue: 0.05).opacity(0.48))
+            RockyLine(points: [CGPoint(x: 84, y: 39), CGPoint(x: 94, y: 71), CGPoint(x: 110, y: 115)], lineWidth: 2.0, color: Color.black.opacity(0.28))
+            RockyLine(points: [CGPoint(x: 56, y: 77), CGPoint(x: 94, y: 71), CGPoint(x: 128, y: 73)], lineWidth: 1.8, color: Color.white.opacity(0.18))
+            RockyLine(points: [CGPoint(x: 68, y: 61), CGPoint(x: 78, y: 77), CGPoint(x: 73, y: 96)], lineWidth: 1.6, color: Color(red: 0.07, green: 0.04, blue: 0.02).opacity(0.5))
+            RockyLine(points: [CGPoint(x: 115, y: 56), CGPoint(x: 106, y: 78), CGPoint(x: 118, y: 94)], lineWidth: 1.8, color: Color(red: 0.07, green: 0.04, blue: 0.02).opacity(0.56))
         }
     }
 
@@ -895,18 +912,18 @@ private struct RockyCreatureView: View {
         Group {
             Circle()
                 .fill(moodAccent.opacity(glowPulse ? 0.96 : 0.55))
-                .frame(width: 11, height: 11)
+                .frame(width: 12, height: 12)
                 .shadow(color: moodAccent.opacity(glowPulse ? 0.85 : 0.35), radius: glowPulse ? 10 : 4)
-                .position(x: 96, y: 88)
+                .position(x: 92, y: 86)
             Circle()
                 .fill(Color(red: 0.1, green: 0.95, blue: 0.78).opacity(blink ? 0.38 : 0.88))
                 .frame(width: 6, height: 6)
                 .shadow(color: Color(red: 0.1, green: 0.95, blue: 0.78).opacity(0.5), radius: 5)
-                .position(x: 69, y: 63)
+                .position(x: 59, y: 72)
             Circle()
                 .fill(Color(red: 1.0, green: 0.82, blue: 0.32).opacity(0.72))
                 .frame(width: 5, height: 5)
-                .position(x: 119, y: 82)
+                .position(x: 122, y: 73)
         }
     }
 
@@ -1064,16 +1081,59 @@ private struct RockyShellShape: Shape {
 
         var path = Path()
         path.move(to: p(88, 36))
-        path.addLine(to: p(119, 45))
-        path.addLine(to: p(136, 70))
-        path.addLine(to: p(128, 101))
-        path.addLine(to: p(105, 119))
-        path.addLine(to: p(74, 117))
-        path.addLine(to: p(51, 98))
-        path.addLine(to: p(43, 69))
-        path.addLine(to: p(59, 46))
+        path.addLine(to: p(119, 42))
+        path.addLine(to: p(140, 67))
+        path.addLine(to: p(134, 94))
+        path.addLine(to: p(113, 116))
+        path.addLine(to: p(81, 124))
+        path.addLine(to: p(53, 109))
+        path.addLine(to: p(39, 80))
+        path.addLine(to: p(49, 56))
         path.closeSubpath()
         return path
+    }
+}
+
+private struct RockyPeaceArm: View {
+    let active: Bool
+    let tint: Color
+    let accent: Color
+
+    private var fingerBase: CGPoint {
+        active ? CGPoint(x: 151, y: 16) : CGPoint(x: 146, y: 22)
+    }
+
+    private var fingerA: CGPoint {
+        active ? CGPoint(x: 146, y: 3) : CGPoint(x: 140, y: 10)
+    }
+
+    private var fingerB: CGPoint {
+        active ? CGPoint(x: 159, y: 7) : CGPoint(x: 155, y: 13)
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            RockyLimb(
+                resting: [CGPoint(x: 116, y: 62), CGPoint(x: 135, y: 39), CGPoint(x: 146, y: 22)],
+                stepping: [CGPoint(x: 116, y: 62), CGPoint(x: 139, y: 35), CGPoint(x: 151, y: 16)],
+                active: active,
+                lineWidth: 7.2,
+                tint: tint,
+                tipColor: accent
+            )
+
+            RockyLine(points: [fingerBase, fingerA], lineWidth: 6.0, color: Color(red: 0.06, green: 0.035, blue: 0.018))
+            RockyLine(points: [fingerBase, fingerB], lineWidth: 6.0, color: Color(red: 0.06, green: 0.035, blue: 0.018))
+            RockyLine(points: [fingerBase, fingerA], lineWidth: 3.2, color: tint.opacity(0.96))
+            RockyLine(points: [fingerBase, fingerB], lineWidth: 3.2, color: tint.opacity(0.96))
+
+            Circle()
+                .fill(Color(red: 0.14, green: 0.90, blue: 0.82))
+                .overlay(Circle().stroke(Color.black.opacity(0.36), lineWidth: 1.2))
+                .frame(width: 8, height: 8)
+                .position(x: active ? 139 : 135, y: active ? 35 : 39)
+        }
+        .frame(width: 180, height: 150)
     }
 }
 
