@@ -6,7 +6,7 @@ struct RockyRootView: View {
     @State private var isHovering = false
 
     private var terminalVisible: Bool {
-        isHovering || viewModel.isThinking || !viewModel.input.isEmpty
+        viewModel.isStageOpen || isHovering || viewModel.isThinking || !viewModel.input.isEmpty
     }
 
     var body: some View {
@@ -19,10 +19,13 @@ struct RockyRootView: View {
                     isThinking: viewModel.isThinking,
                     isUsingFallback: viewModel.isUsingFallback,
                     brainStatus: viewModel.brainStatus,
+                    isStageOpen: viewModel.isStageOpen,
                     conversations: viewModel.conversations,
                     activeConversationID: viewModel.activeConversationID,
                     send: viewModel.send,
                     newChat: viewModel.newChat,
+                    openStage: viewModel.openStage,
+                    closeStage: viewModel.closeStage,
                     selectChat: viewModel.selectChat,
                     deleteChat: viewModel.deleteActiveChat,
                     quit: viewModel.quit
@@ -31,7 +34,7 @@ struct RockyRootView: View {
                     insertion: .move(edge: .top).combined(with: .opacity),
                     removal: .opacity
                 ))
-                .padding(.bottom, 118)
+                .padding(.bottom, viewModel.isStageOpen ? 126 : 118)
             }
 
             RockyCreatureView(mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
@@ -50,13 +53,44 @@ struct RockyRootView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .frame(minWidth: 240, idealWidth: 360, maxWidth: 620, minHeight: 250, idealHeight: 390, maxHeight: 720)
+        .frame(
+            minWidth: viewModel.isStageOpen ? 560 : 240,
+            idealWidth: viewModel.isStageOpen ? 760 : 360,
+            maxWidth: viewModel.isStageOpen ? 940 : 620,
+            minHeight: viewModel.isStageOpen ? 500 : 250,
+            idealHeight: viewModel.isStageOpen ? 660 : 390,
+            maxHeight: viewModel.isStageOpen ? 820 : 720
+        )
         .background(Color.clear)
         .onHover { hovering in
             withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
                 isHovering = hovering
             }
         }
+        .onChange(of: viewModel.isStageOpen) { _, isOpen in
+            resizePanelForStage(isOpen)
+        }
+    }
+
+    private func resizePanelForStage(_ isOpen: Bool) {
+        guard let window = NSApp.windows.first(where: { $0.title == "Agent Rocky" }) else {
+            return
+        }
+
+        let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        guard screenFrame.width > 1, screenFrame.height > 1 else {
+            window.setContentSize(isOpen ? NSSize(width: 760, height: 660) : NSSize(width: 360, height: 390))
+            return
+        }
+
+        let size = isOpen
+            ? NSSize(width: min(760, screenFrame.width * 0.72), height: min(660, screenFrame.height * 0.72))
+            : NSSize(width: 360, height: 390)
+        let origin = isOpen
+            ? NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.midY - size.height / 2)
+            : NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.minY + 18)
+
+        window.setFrame(NSRect(origin: origin, size: size), display: true, animate: true)
     }
 }
 
@@ -67,10 +101,13 @@ private struct RockyTerminal: View {
     let isThinking: Bool
     let isUsingFallback: Bool
     let brainStatus: String
+    let isStageOpen: Bool
     let conversations: [RockyConversationSummary]
     let activeConversationID: String
     let send: () -> Void
     let newChat: () -> Void
+    let openStage: () -> Void
+    let closeStage: () -> Void
     let selectChat: (String) -> Void
     let deleteChat: () -> Void
     let quit: () -> Void
@@ -126,7 +163,14 @@ private struct RockyTerminal: View {
             .padding(.vertical, 8)
         }
         .font(.system(size: 12, weight: .bold, design: .monospaced))
-        .frame(minWidth: 220, idealWidth: 330, maxWidth: .infinity, minHeight: 126, idealHeight: 178, maxHeight: .infinity)
+        .frame(
+            minWidth: isStageOpen ? 520 : 220,
+            idealWidth: isStageOpen ? 700 : 330,
+            maxWidth: .infinity,
+            minHeight: isStageOpen ? 350 : 126,
+            idealHeight: isStageOpen ? 500 : 178,
+            maxHeight: .infinity
+        )
         .background(
             PixelTerminalShape(cut: 10)
                 .fill(Color(red: 0.02, green: 0.035, blue: 0.025).opacity(0.94))
@@ -156,6 +200,14 @@ private struct RockyTerminal: View {
                 .foregroundStyle(.white.opacity(0.72))
                 .frame(width: 62)
                 .help("Model override. Leave blank for Codex default.")
+
+            Button(action: isStageOpen ? closeStage : openStage) {
+                Image(systemName: isStageOpen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 10, weight: .black))
+                    .frame(width: 24, height: 20)
+            }
+            .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.78, green: 0.68, blue: 1.0)))
+            .help(isStageOpen ? "Mini mode" : "Open stage")
 
             Menu {
                 if conversations.isEmpty {

@@ -11,6 +11,7 @@ final class RockyViewModel: ObservableObject {
     @Published var isThinking = false
     @Published var brainStatus = "Codex default"
     @Published var isUsingFallback = false
+    @Published var isStageOpen = false
     @Published var activeConversationID = ""
     @Published var conversations: [RockyConversationSummary] = []
     @Published var terminalLines = [
@@ -46,6 +47,11 @@ final class RockyViewModel: ObservableObject {
         guard !message.isEmpty, !isThinking else { return }
 
         input = ""
+
+        if handleCommand(message) {
+            return
+        }
+
         isThinking = true
         appendTerminal("> \(message)")
         appendTerminal("rocky: thinking...")
@@ -108,6 +114,20 @@ final class RockyViewModel: ObservableObject {
         NSApp.terminate(nil)
     }
 
+    func openStage() {
+        guard !isStageOpen else { return }
+        isStageOpen = true
+        appendTerminal("system: stage open")
+        persist()
+    }
+
+    func closeStage() {
+        guard isStageOpen else { return }
+        isStageOpen = false
+        appendTerminal("system: mini mode")
+        persist()
+    }
+
     private func apply(_ response: RockyBrainResponse) {
         let cleaned = response.cleaned
         withAnimation(.spring(response: 0.35, dampingFraction: 0.74)) {
@@ -129,6 +149,68 @@ final class RockyViewModel: ObservableObject {
             appendTerminal(line)
         } else {
             terminalLines[terminalLines.count - 1] = line
+        }
+    }
+
+    private func handleCommand(_ message: String) -> Bool {
+        guard message.hasPrefix("/") else {
+            return false
+        }
+
+        let parts = message
+            .split(separator: " ", omittingEmptySubsequences: true)
+            .map(String.init)
+        let command = parts.first?.lowercased() ?? ""
+
+        switch command {
+        case "/open", "/stage", "/full":
+            appendTerminal("> \(message)")
+            isStageOpen = true
+            appendTerminal("system: stage open")
+            persist()
+            return true
+
+        case "/mini", "/close":
+            appendTerminal("> \(message)")
+            isStageOpen = false
+            appendTerminal("system: mini mode")
+            persist()
+            return true
+
+        case "/new":
+            newChat()
+            return true
+
+        case "/chats":
+            appendTerminal("> \(message)")
+            if conversations.isEmpty {
+                appendTerminal("system: no chats")
+            } else {
+                conversations.prefix(8).forEach { conversation in
+                    let marker = conversation.id == activeConversationID ? "*" : "-"
+                    appendTerminal("system: \(marker) \(conversation.title)")
+                }
+            }
+            persist()
+            return true
+
+        case "/delete":
+            deleteActiveChat()
+            appendTerminal("system: deleted active chat")
+            persist()
+            return true
+
+        case "/help":
+            appendTerminal("> \(message)")
+            appendTerminal("system: /open /mini /new /chats /delete")
+            persist()
+            return true
+
+        default:
+            appendTerminal("> \(message)")
+            appendTerminal("system: unknown command. try /help")
+            persist()
+            return true
         }
     }
 
