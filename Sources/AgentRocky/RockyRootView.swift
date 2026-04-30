@@ -19,8 +19,12 @@ struct RockyRootView: View {
                     isThinking: viewModel.isThinking,
                     isUsingFallback: viewModel.isUsingFallback,
                     brainStatus: viewModel.brainStatus,
+                    conversations: viewModel.conversations,
+                    activeConversationID: viewModel.activeConversationID,
                     send: viewModel.send,
                     newChat: viewModel.newChat,
+                    selectChat: viewModel.selectChat,
+                    deleteChat: viewModel.deleteActiveChat,
                     quit: viewModel.quit
                 )
                 .transition(.asymmetric(
@@ -63,8 +67,12 @@ private struct RockyTerminal: View {
     let isThinking: Bool
     let isUsingFallback: Bool
     let brainStatus: String
+    let conversations: [RockyConversationSummary]
+    let activeConversationID: String
     let send: () -> Void
     let newChat: () -> Void
+    let selectChat: (String) -> Void
+    let deleteChat: () -> Void
     let quit: () -> Void
 
     @FocusState private var inputFocused: Bool
@@ -148,6 +156,37 @@ private struct RockyTerminal: View {
                 .foregroundStyle(.white.opacity(0.72))
                 .frame(width: 62)
                 .help("Model override. Leave blank for Codex default.")
+
+            Menu {
+                if conversations.isEmpty {
+                    Text("No chats yet")
+                } else {
+                    ForEach(conversations) { conversation in
+                        Button {
+                            selectChat(conversation.id)
+                        } label: {
+                            Label(
+                                conversation.title,
+                                systemImage: conversation.id == activeConversationID ? "checkmark.circle.fill" : "bubble.left"
+                            )
+                        }
+                    }
+
+                    Divider()
+
+                    Button(role: .destructive, action: deleteChat) {
+                        Label("Delete current", systemImage: "trash")
+                    }
+                    .disabled(activeConversationID.isEmpty)
+                }
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 10, weight: .black))
+                    .frame(width: 24, height: 20)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help("Old chats")
 
             Button(action: newChat) {
                 Image(systemName: "plus.bubble")

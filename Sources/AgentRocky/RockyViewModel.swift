@@ -11,8 +11,10 @@ final class RockyViewModel: ObservableObject {
     @Published var isThinking = false
     @Published var brainStatus = "Codex default"
     @Published var isUsingFallback = false
+    @Published var activeConversationID = ""
+    @Published var conversations: [RockyConversationSummary] = []
     @Published var terminalLines = [
-        "agent rocky v0.2",
+        "agent rocky v0.3",
         "hover to talk"
     ]
 
@@ -20,6 +22,8 @@ final class RockyViewModel: ObservableObject {
     private let memoryStore = RockyMemoryStore()
     private var history: [ChatTurn] = []
     private var codexSessionID: String?
+    private var profileID = "rocky"
+    private var conversationCreatedAt = Date()
 
     private let idleLines: [RockyBrainResponse] = [
         RockyBrainResponse(text: "good good good", mood: .happy, animation: .bounce),
@@ -29,14 +33,7 @@ final class RockyViewModel: ObservableObject {
     ]
 
     init() {
-        if let snapshot = memoryStore.load() {
-            codexSessionID = snapshot.sessionID
-            history = snapshot.history
-            if !snapshot.terminalLines.isEmpty {
-                terminalLines = snapshot.terminalLines
-            }
-            brainStatus = snapshot.sessionID == nil ? "Codex default" : "Codex session saved"
-        }
+        load(memoryStore.loadState())
     }
 
     func poke() {
@@ -72,19 +69,39 @@ final class RockyViewModel: ObservableObject {
     }
 
     func newChat() {
-        codexSessionID = nil
-        history = []
-        terminalLines = [
-            "agent rocky v0.2",
-            "new chat for Devdeep"
-        ]
+        load(memoryStore.createConversation(profileID: profileID, model: model))
         currentText = "ready"
         mood = .curious
         animation = .idle
         brainStatus = "New Codex session on next message"
         isUsingFallback = false
         input = ""
-        memoryStore.reset()
+    }
+
+    func selectChat(_ id: String) {
+        guard !isThinking, let state = memoryStore.selectConversation(id: id) else {
+            return
+        }
+
+        load(state)
+        input = ""
+        currentText = "ready"
+        mood = .curious
+        animation = .idle
+        isUsingFallback = false
+    }
+
+    func deleteActiveChat() {
+        guard !isThinking, !activeConversationID.isEmpty else {
+            return
+        }
+
+        load(memoryStore.deleteConversation(id: activeConversationID))
+        input = ""
+        currentText = "ready"
+        mood = .curious
+        animation = .idle
+        brainStatus = codexSessionID == nil ? "Codex default" : "Codex session saved"
     }
 
     func quit() {
@@ -116,10 +133,41 @@ final class RockyViewModel: ObservableObject {
     }
 
     private func persist() {
-        memoryStore.save(RockyMemorySnapshot(
-            sessionID: codexSessionID,
+        var conversation = RockyConversation(
+            id: activeConversationID.isEmpty ? UUID().uuidString.lowercased() : activeConversationID,
+            title: titleForCurrentConversation(),
+            createdAt: conversationCreatedAt,
+            updatedAt: Date(),
+            codexSessionID: codexSessionID,
+            profileID: profileID,
+            model: model,
             terminalLines: terminalLines,
             history: history
-        ))
+        )
+        conversation.title = titleForCurrentConversation()
+        memoryStore.saveConversation(conversation, makeActive: true)
+        conversations = memoryStore.listSummaries()
+    }
+
+    private func load(_ state: RockyConversationState) {
+        let conversation = state.active
+        activeConversationID = conversation.id
+        conversations = state.summaries
+        codexSessionID = conversation.codexSessionID
+        profileID = conversation.profileID
+        conversationCreatedAt = conversation.createdAt
+        model = conversation.model
+        history = conversation.history
+        terminalLines = conversation.terminalLines.isEmpty ? ["agent rocky v0.3", "hover to talk"] : conversation.terminalLines
+        brainStatus = conversation.codexSessionID == nil ? "Codex default" : "Codex session saved"
+    }
+
+    private func titleForCurrentConversation() -> String {
+        if let first = history.first?.user.trimmingCharacters(in: .whitespacesAndNewlines),
+           !first.isEmpty {
+            return first.count <= 34 ? first : String(first.prefix(31)) + "..."
+        }
+
+        return "New chat"
     }
 }

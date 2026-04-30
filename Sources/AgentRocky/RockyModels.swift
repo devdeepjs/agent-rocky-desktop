@@ -37,7 +37,7 @@ struct RockyBrainResponse: Codable, Sendable {
     }
 }
 
-struct ChatTurn: Codable, Sendable {
+struct ChatTurn: Codable, Equatable, Sendable {
     let user: String
     let rocky: String
 }
