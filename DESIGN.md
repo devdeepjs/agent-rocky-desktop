@@ -5,7 +5,7 @@
 Build a small macOS desktop buddy inspired by the reel:
 
 - A transparent floating desktop character near the Dock.
-- Cute 8-bit Rocky-style body inspired by the reference image.
+- Small animated creature with a faceted, rocky alien look.
 - No always-visible chat box, speech bubble, or title label.
 - A tiny terminal opens only on hover/focus.
 - The transparent panel is resizable so the terminal size can change.
@@ -21,7 +21,7 @@ SwiftUI macOS app
   AppKit floating NSPanel
     RockyRootView
       transparent desktop overlay
-      custom 8-bit character
+      custom animated character
       hover terminal
   CodexBrain
     starts one persistent codex exec session
@@ -68,12 +68,6 @@ After a session id is known, the command shape becomes:
 codex exec resume --skip-git-repo-check --json -o /tmp/agent-rocky-response.json <session-id> -
 ```
 
-Current local evidence:
-
-- `~/.codex/config.toml` default model: `gpt-5.5`
-- bundled model catalog: `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex`, `gpt-5.2`, `codex-auto-review`
-- `opus` was not present in the local Codex model catalog checked from this environment
-
 ## Visual Decode
 
 The reel composition is not a normal app window. It looks like:
@@ -100,3 +94,7 @@ Direct `codex exec` is the smallest working path because it reuses the user's ex
 - Voice input.
 - macOS text-to-speech.
 - App icon and packaged `.app` bundle.
+- Conversation picker for old chats.
+- Profile configuration.
+- Animation registry.
+- Test suite.

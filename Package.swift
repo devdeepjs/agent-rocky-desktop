@@ -11,6 +11,7 @@ let package = Package(
         .executable(name: "AgentRocky", targets: ["AgentRocky"])
     ],
     targets: [
-        .executableTarget(name: "AgentRocky")
+        .executableTarget(name: "AgentRocky"),
+        .testTarget(name: "AgentRockyTests", dependencies: ["AgentRocky"])
     ]
 )
