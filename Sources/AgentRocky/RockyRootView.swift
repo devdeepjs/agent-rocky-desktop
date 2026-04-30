@@ -176,6 +176,10 @@ private struct RockyTerminal: View {
                             Text(line)
                                 .id(index)
                                 .foregroundStyle(line.hasPrefix(">") ? Color(red: 0.78, green: 0.97, blue: 1.0) : Color(red: 0.63, green: 1.0, blue: 0.58))
+                                .lineLimit(nil)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
                                 .contextMenu {
                                     Button("Copy Line") {

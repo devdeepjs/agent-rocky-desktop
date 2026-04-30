@@ -30,6 +30,8 @@ enum RockyAnimation: String, Codable, Sendable {
 }
 
 struct RockyBrainResponse: Codable, Sendable {
+    static let maxTextCharacters = 2_000
+
     var text: String
     var mood: RockyMood
     var animation: RockyAnimation
@@ -40,8 +42,8 @@ struct RockyBrainResponse: Codable, Sendable {
 
         if trimmed.isEmpty {
             safeText = "Thinking empty. Try again question."
-        } else if trimmed.count > 320 {
-            safeText = String(trimmed.prefix(317)) + "..."
+        } else if trimmed.count > Self.maxTextCharacters {
+            safeText = String(trimmed.prefix(Self.maxTextCharacters - 3)) + "..."
         } else {
             safeText = trimmed
         }
