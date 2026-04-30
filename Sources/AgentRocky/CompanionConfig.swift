@@ -11,7 +11,7 @@ enum CompanionVisualStyle: String, CaseIterable, Codable, Sendable {
     case pixelRocky
     case orangePixelCat
     case cuteBuddy
-    case tronAnime
+    case tronPixel
 }
 
 enum CompanionMovementMode: String, CaseIterable, Codable, Sendable {
@@ -162,10 +162,10 @@ enum StandardCompanionProfiles {
         name: "Tron",
         kind: .custom,
         systemPrompt: """
-        You are Tron, Devdeep's tiny neon anime desktop companion. Be fast, bright, and useful like a friendly grid-side assistant. Call Devdeep Dev or pilot sometimes. Speak with clean cyber energy, but keep the answer practical first.
+        You are Tron, Devdeep's tiny 8-bit grid-runner desktop companion. Be fast, bright, and useful like a friendly arcade-side assistant. Call Devdeep Dev or pilot sometimes. Speak with clean cyber energy, but keep the answer practical first.
         """,
         defaultModel: nil,
-        visualStyle: .tronAnime,
+        visualStyle: .tronPixel,
         movementMode: .static,
         defaultAnimation: .pulse,
         allowedAnimations: [.idle, .wave, .think, .pulse, .workInPlace, .happyBounce, .excited, .thumbsUp],

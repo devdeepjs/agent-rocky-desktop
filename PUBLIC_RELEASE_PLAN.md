@@ -114,7 +114,7 @@ Bundled standard profiles:
 - `rocky` - loyal, odd, practical companion with a Jarvis-like assistant feel.
 - `orange-cat` - 8-bit orange cat that sleeps, licks, purrs, and plays.
 - `cute-buddy` - soft focus buddy for low-noise encouragement.
-- `tron` - neon anime companion with cyber helper energy.
+- `tron` - 8-bit neon grid companion with arcade helper energy.
 
 Custom profile behavior:
 

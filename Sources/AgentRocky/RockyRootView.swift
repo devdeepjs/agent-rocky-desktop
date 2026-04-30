@@ -482,8 +482,8 @@ private struct CompanionCreatureView: View {
             OrangePixelCatView(mood: mood, animation: animation, isAwake: isAwake)
         case .cuteBuddy:
             CuteBuddyView(mood: mood, animation: animation, isAwake: isAwake)
-        case .tronAnime:
-            TronAnimeBuddyView(mood: mood, animation: animation, isAwake: isAwake)
+        case .tronPixel:
+            TronPixelBuddyView(mood: mood, animation: animation, isAwake: isAwake)
         default:
             RockyCreatureView(mood: mood, animation: animation, isAwake: isAwake)
         }
@@ -744,7 +744,7 @@ private struct CuteBuddyView: View {
     }
 }
 
-private struct TronAnimeBuddyView: View {
+private struct TronPixelBuddyView: View {
     let mood: RockyMood
     let animation: RockyAnimation
     let isAwake: Bool
@@ -752,46 +752,34 @@ private struct TronAnimeBuddyView: View {
     @State private var pulse = false
     @State private var blink = false
 
-    private let cyan = Color(red: 0.20, green: 0.96, blue: 1.0)
-    private let orange = Color(red: 1.0, green: 0.48, blue: 0.20)
+    private let cyan = Color(red: 0.18, green: 0.94, blue: 1.0)
+    private let orange = Color(red: 1.0, green: 0.46, blue: 0.16)
     private let bodyDark = Color(red: 0.025, green: 0.035, blue: 0.055)
 
     var body: some View {
-        ZStack {
-            Ellipse()
-                .fill(cyan.opacity(pulse ? 0.20 : 0.10))
-                .frame(width: 108, height: 18)
-                .blur(radius: 4)
-                .offset(y: 58)
+        GeometryReader { geometry in
+            let unit = min(geometry.size.width / 20, geometry.size.height / 18)
+            let originX = (geometry.size.width - unit * 20) / 2
+            let originY = (geometry.size.height - unit * 18) / 2
+            let bob = verticalMotion(unit: unit)
 
-            dataHalo
-                .offset(y: pulse ? -8 : -4)
+            ZStack(alignment: .topLeading) {
+                pixelLayer(gridBlocks(), unit: unit, originX: originX, originY: originY)
+                pixelLayer(lightTrailBlocks(), unit: unit, originX: originX + trailMotion(unit: unit), originY: originY)
+                    .opacity(isAwake ? 0.96 : 0.62)
+                pixelLayer(spriteBlocks(), unit: unit, originX: originX, originY: originY + bob)
 
-            lightTrail
-                .opacity(animation == .pulse || animation == .workInPlace || animation == .think ? 0.95 : 0.36)
-                .offset(y: pulse ? -2 : 2)
+                if animation == .happyBounce || animation == .excited {
+                    pixelLayer(heartBlocks(), unit: unit, originX: originX, originY: originY + (pulse ? -unit : 0))
+                }
 
-            legs
-                .offset(y: pulse ? -2 : 1)
-
-            bodyCore
-                .offset(y: verticalMotion)
-
-            head
-                .offset(y: verticalMotion - 42)
-
-            if animation == .happyBounce || animation == .excited {
-                neonHeart
-                    .offset(x: 44, y: pulse ? -60 : -52)
-            }
-
-            if animation == .thumbsUp {
-                saluteArm
-                    .offset(y: pulse ? -4 : 0)
+                if animation == .think || animation == .workInPlace || animation == .pulse {
+                    pixelLayer(scanBlocks(), unit: unit, originX: originX, originY: originY + scanMotion(unit: unit))
+                }
             }
         }
         .scaleEffect(isAwake ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.52).repeatForever(autoreverses: true), value: pulse)
+        .animation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true), value: pulse)
         .animation(.easeInOut(duration: 0.16), value: isAwake)
         .onAppear {
             pulse = true
@@ -806,136 +794,183 @@ private struct TronAnimeBuddyView: View {
         }
     }
 
-    private var verticalMotion: CGFloat {
+    private func pixelLayer(_ blocks: [TronPixelBlock], unit: CGFloat, originX: CGFloat, originY: CGFloat) -> some View {
+        ForEach(blocks) { block in
+            Rectangle()
+                .fill(block.color)
+                .frame(width: block.w * unit, height: block.h * unit)
+                .offset(x: originX + block.x * unit, y: originY + block.y * unit)
+        }
+    }
+
+    private func verticalMotion(unit: CGFloat) -> CGFloat {
         switch animation {
         case .happyBounce, .excited:
-            return pulse ? -9 : -2
+            return pulse ? -1.3 * unit : -0.2 * unit
         case .think, .pulse, .workInPlace:
-            return pulse ? -5 : -1
+            return pulse ? -0.7 * unit : 0
         case .thumbsUp, .wave:
-            return pulse ? -6 : -2
+            return pulse ? -1.0 * unit : -0.2 * unit
         default:
-            return pulse ? -4 : 0
+            return pulse ? -0.55 * unit : 0
         }
     }
 
-    private var dataHalo: some View {
-        ZStack {
-            Circle()
-                .trim(from: 0.08, to: 0.84)
-                .stroke(cyan.opacity(0.62), style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [10, 6]))
-                .frame(width: 118, height: 118)
-                .rotationEffect(.degrees(pulse ? 10 : -8))
-
-            Circle()
-                .trim(from: 0.58, to: 0.96)
-                .stroke(orange.opacity(0.76), style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
-                .frame(width: 88, height: 88)
-                .rotationEffect(.degrees(pulse ? -18 : 14))
-        }
+    private func trailMotion(unit: CGFloat) -> CGFloat {
+        pulse ? unit * 0.5 : -unit * 0.4
     }
 
-    private var lightTrail: some View {
-        VStack(spacing: 6) {
-            ForEach(0..<3, id: \.self) { index in
-                Capsule()
-                    .fill(index == 1 ? orange.opacity(0.68) : cyan.opacity(0.62))
-                    .frame(width: CGFloat(76 - index * 18), height: 3)
-                    .offset(x: CGFloat(index * 10 - 8))
-            }
-        }
-        .offset(y: 18)
+    private func scanMotion(unit: CGFloat) -> CGFloat {
+        pulse ? -unit * 0.3 : unit * 0.4
     }
 
-    private var legs: some View {
-        HStack(spacing: 28) {
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(bodyDark)
-                .frame(width: 12, height: 32)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(cyan.opacity(0.78), lineWidth: 1.6))
-                .rotationEffect(.degrees(pulse ? 6 : -4))
+    private func gridBlocks() -> [TronPixelBlock] {
+        let grid = cyan.opacity(pulse ? 0.28 : 0.18)
+        let darkGrid = cyan.opacity(0.10)
 
-            RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(bodyDark)
-                .frame(width: 12, height: 32)
-                .overlay(RoundedRectangle(cornerRadius: 4).stroke(cyan.opacity(0.78), lineWidth: 1.6))
-                .rotationEffect(.degrees(pulse ? -6 : 4))
-        }
-        .offset(y: 42)
+        return numbered([
+            TronPixelBlock(1, 16, 18, 0.35, grid),
+            TronPixelBlock(3, 15, 14, 0.30, darkGrid),
+            TronPixelBlock(5, 14, 10, 0.25, darkGrid),
+            TronPixelBlock(2, 14, 0.35, 3, darkGrid),
+            TronPixelBlock(6, 13, 0.35, 4, grid),
+            TronPixelBlock(10, 13, 0.35, 4, darkGrid),
+            TronPixelBlock(14, 13, 0.35, 4, grid),
+            TronPixelBlock(18, 14, 0.35, 3, darkGrid)
+        ])
     }
 
-    private var bodyCore: some View {
-        VStack(spacing: 0) {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(red: 0.05, green: 0.07, blue: 0.11), bodyDark],
-                    startPoint: .top,
-                    endPoint: .bottom
-                ))
-                .frame(width: 62, height: 66)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(cyan.opacity(0.78), lineWidth: 2))
-                .overlay(
-                    VStack(spacing: 8) {
-                        Capsule()
-                            .fill(cyan.opacity(pulse ? 0.90 : 0.54))
-                            .frame(width: 28, height: 3)
-                        Circle()
-                            .fill(orange.opacity(mood == .happy ? 0.94 : 0.50))
-                            .frame(width: 9, height: 9)
-                            .shadow(color: orange.opacity(0.56), radius: 7)
-                    }
-                )
-        }
-        .shadow(color: cyan.opacity(0.30), radius: pulse ? 16 : 9)
-        .offset(y: 12)
+    private func lightTrailBlocks() -> [TronPixelBlock] {
+        numbered([
+            TronPixelBlock(1, 12, 5, 1, cyan.opacity(0.24)),
+            TronPixelBlock(2, 13, 6, 1, cyan.opacity(0.44)),
+            TronPixelBlock(3, 14, 4, 1, orange.opacity(0.55)),
+            TronPixelBlock(0, 15, 8, 1, cyan.opacity(0.16))
+        ])
     }
 
-    private var head: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(LinearGradient(
-                    colors: [Color(red: 0.06, green: 0.08, blue: 0.14), Color(red: 0.01, green: 0.015, blue: 0.03)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ))
-                .frame(width: 76, height: 58)
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(cyan.opacity(0.86), lineWidth: 2.4))
-                .shadow(color: cyan.opacity(0.45), radius: pulse ? 14 : 8)
+    private func spriteBlocks() -> [TronPixelBlock] {
+        let outline = Color(red: 0.005, green: 0.008, blue: 0.018)
+        let suit = bodyDark
+        let suitLight = Color(red: 0.05, green: 0.07, blue: 0.12)
+        let visor = cyan.opacity(blink || animation == .sleep ? 0.34 : 0.96)
+        let circuit = cyan.opacity(pulse ? 1.0 : 0.68)
+        let disc = mood == .happy ? orange : cyan
 
-            Capsule()
-                .fill(cyan.opacity(blink || animation == .sleep ? 0.38 : 0.88))
-                .frame(width: 42, height: blink || animation == .sleep ? 3 : 9)
-                .shadow(color: cyan.opacity(0.72), radius: 7)
+        var blocks: [TronPixelBlock] = [
+            // Identity disc dock.
+            TronPixelBlock(14, 6, 3, 1, outline),
+            TronPixelBlock(13, 7, 5, 2, outline),
+            TronPixelBlock(14, 9, 3, 1, outline),
+            TronPixelBlock(14, 7, 3, 2, disc.opacity(0.82)),
+            TronPixelBlock(15, 7, 1, 2, Color.white.opacity(0.72)),
 
-            Capsule()
-                .fill(orange.opacity(0.78))
-                .frame(width: 16, height: 3)
-                .offset(y: 18)
+            // Helmet.
+            TronPixelBlock(7, 2, 6, 1, outline),
+            TronPixelBlock(6, 3, 8, 1, outline),
+            TronPixelBlock(5, 4, 10, 3, outline),
+            TronPixelBlock(6, 7, 8, 1, outline),
+            TronPixelBlock(7, 3, 6, 1, suitLight),
+            TronPixelBlock(6, 4, 8, 2, suit),
+            TronPixelBlock(7, 6, 6, 1, suitLight),
+            TronPixelBlock(7, 4, 6, 1, visor),
+            TronPixelBlock(8, 5, 4, 1, cyan.opacity(0.30)),
+            TronPixelBlock(9, 6, 2, 1, orange.opacity(0.76)),
+
+            // Torso.
+            TronPixelBlock(7, 8, 6, 1, outline),
+            TronPixelBlock(6, 9, 8, 4, outline),
+            TronPixelBlock(7, 13, 6, 1, outline),
+            TronPixelBlock(7, 9, 6, 3, suit),
+            TronPixelBlock(8, 12, 4, 1, suitLight),
+            TronPixelBlock(8, 9, 4, 1, circuit),
+            TronPixelBlock(10, 10, 1, 2, circuit),
+            TronPixelBlock(9, 11, 3, 1, orange.opacity(0.76)),
+
+            // Left arm.
+            TronPixelBlock(4, 8, 3, 1, outline),
+            TronPixelBlock(3, 9, 3, 1, outline),
+            TronPixelBlock(3, 10, 2, 1, outline),
+            TronPixelBlock(4, 9, 2, 1, suit),
+            TronPixelBlock(3, 10, 1, 1, circuit),
+
+            // Legs and boots.
+            TronPixelBlock(7, 14, 2, 2, outline),
+            TronPixelBlock(11, 14, 2, 2, outline),
+            TronPixelBlock(7, 14, 1, 2, suit),
+            TronPixelBlock(11, 14, 1, 2, suit),
+            TronPixelBlock(6, 16, 3, 1, outline),
+            TronPixelBlock(11, 16, 3, 1, outline),
+            TronPixelBlock(7, 16, 2, 1, circuit),
+            TronPixelBlock(11, 16, 2, 1, circuit)
+        ]
+
+        if animation == .thumbsUp || animation == .wave {
+            blocks.append(contentsOf: [
+                TronPixelBlock(13, 8, 2, 1, outline),
+                TronPixelBlock(14, 6, 1, 3, outline),
+                TronPixelBlock(15, 5, 1, 2, outline),
+                TronPixelBlock(16, 4, 1, 1, orange.opacity(0.94)),
+                TronPixelBlock(14, 7, 1, 1, circuit)
+            ])
+        } else {
+            blocks.append(contentsOf: [
+                TronPixelBlock(13, 8, 3, 1, outline),
+                TronPixelBlock(14, 9, 3, 1, outline),
+                TronPixelBlock(15, 10, 2, 1, outline),
+                TronPixelBlock(14, 9, 2, 1, suit),
+                TronPixelBlock(16, 10, 1, 1, circuit)
+            ])
         }
+
+        return numbered(blocks)
     }
 
-    private var neonHeart: some View {
-        HeartShape()
-            .stroke(orange.opacity(0.92), style: StrokeStyle(lineWidth: 2.4, lineCap: .round, lineJoin: .round))
-            .frame(width: 18, height: 16)
-            .shadow(color: orange.opacity(0.66), radius: 8)
+    private func heartBlocks() -> [TronPixelBlock] {
+        numbered([
+            TronPixelBlock(16, 2, 1, 1, orange.opacity(0.95)),
+            TronPixelBlock(18, 2, 1, 1, orange.opacity(0.95)),
+            TronPixelBlock(15, 3, 5, 1, orange.opacity(0.95)),
+            TronPixelBlock(16, 4, 3, 1, orange.opacity(0.86)),
+            TronPixelBlock(17, 5, 1, 1, orange.opacity(0.70)),
+            TronPixelBlock(14, 2, 1, 1, cyan.opacity(0.78)),
+            TronPixelBlock(19, 5, 1, 1, cyan.opacity(0.58))
+        ])
     }
 
-    private var saluteArm: some View {
-        ZStack {
-            Capsule()
-                .fill(bodyDark)
-                .frame(width: 9, height: 42)
-                .overlay(Capsule().stroke(cyan.opacity(0.82), lineWidth: 1.4))
-                .rotationEffect(.degrees(-42))
-                .offset(x: 41, y: -22)
+    private func scanBlocks() -> [TronPixelBlock] {
+        numbered([
+            TronPixelBlock(3, 1, 5, 1, cyan.opacity(pulse ? 0.82 : 0.34)),
+            TronPixelBlock(12, 2, 4, 1, orange.opacity(pulse ? 0.76 : 0.30)),
+            TronPixelBlock(2, 4, 2, 1, cyan.opacity(0.42)),
+            TronPixelBlock(16, 12, 2, 1, cyan.opacity(pulse ? 0.74 : 0.26)),
+            TronPixelBlock(18, 13, 1, 1, orange.opacity(0.62))
+        ])
+    }
 
-            Circle()
-                .fill(orange.opacity(0.92))
-                .frame(width: 11, height: 11)
-                .offset(x: 55, y: -39)
-                .shadow(color: orange.opacity(0.72), radius: 8)
+    private func numbered(_ blocks: [TronPixelBlock]) -> [TronPixelBlock] {
+        blocks.enumerated().map { index, block in
+            var mutable = block
+            mutable.id = index
+            return mutable
         }
+    }
+}
+
+private struct TronPixelBlock: Identifiable {
+    var id = 0
+    let x: CGFloat
+    let y: CGFloat
+    let w: CGFloat
+    let h: CGFloat
+    let color: Color
+
+    init(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color) {
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.color = color
     }
 }
 
