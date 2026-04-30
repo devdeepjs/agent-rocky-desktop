@@ -12,10 +12,12 @@ final class RockyViewModel: ObservableObject {
     @Published var brainStatus = "Codex default"
     @Published var isUsingFallback = false
     @Published var isStageOpen = false
+    @Published var isFullOpen = false
     @Published var activeConversationID = ""
     @Published var conversations: [RockyConversationSummary] = []
     @Published var availableProfiles = StandardCompanionProfiles.all
     @Published var activeProfile = StandardCompanionProfiles.rocky
+    @Published var activeMovementMode: CompanionMovementMode = .static
     @Published var terminalLines = [
         "agent rocky v0.3",
         "hover to talk"
@@ -121,6 +123,7 @@ final class RockyViewModel: ObservableObject {
         }
 
         activeProfile = profile
+        activeMovementMode = profile.movementMode
         if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let defaultModel = profile.defaultModel {
             model = defaultModel
@@ -134,16 +137,34 @@ final class RockyViewModel: ObservableObject {
     }
 
     func openStage() {
-        guard !isStageOpen else { return }
+        guard !isStageOpen || isFullOpen else { return }
         isStageOpen = true
+        isFullOpen = false
         appendTerminal("system: stage open")
         persist()
     }
 
     func closeStage() {
-        guard isStageOpen else { return }
+        guard isStageOpen || isFullOpen else { return }
         isStageOpen = false
+        isFullOpen = false
         appendTerminal("system: mini mode")
+        persist()
+    }
+
+    func openFull() {
+        guard !isFullOpen else { return }
+        isStageOpen = true
+        isFullOpen = true
+        appendTerminal("system: full window")
+        persist()
+    }
+
+    func closeFullToStage() {
+        guard isFullOpen else { return }
+        isStageOpen = true
+        isFullOpen = false
+        appendTerminal("system: stage open")
         persist()
     }
 
@@ -191,17 +212,21 @@ final class RockyViewModel: ObservableObject {
         let command = parts.first?.lowercased() ?? ""
 
         switch command {
-        case "/open", "/stage", "/full":
+        case "/open", "/stage":
             appendTerminal("> \(message)")
-            isStageOpen = true
-            appendTerminal("system: stage open")
+            openStage()
+            persist()
+            return true
+
+        case "/full":
+            appendTerminal("> \(message)")
+            openFull()
             persist()
             return true
 
         case "/mini", "/close":
             appendTerminal("> \(message)")
-            isStageOpen = false
-            appendTerminal("system: mini mode")
+            closeStage()
             persist()
             return true
 
@@ -289,6 +314,7 @@ final class RockyViewModel: ObservableObject {
             updatedAt: Date(),
             codexSessionID: codexSessionID,
             profileID: activeProfile.id,
+            movementMode: activeMovementMode,
             model: model,
             terminalLines: terminalLines,
             history: history
@@ -303,7 +329,8 @@ final class RockyViewModel: ObservableObject {
         activeConversationID = conversation.id
         conversations = state.summaries
         codexSessionID = conversation.codexSessionID
-        activeProfile = availableProfiles.first(where: { $0.id == conversation.profileID }) ?? StandardCompanionProfiles.rocky
+        activeProfile = StandardCompanionProfiles.profile(id: conversation.profileID) ?? StandardCompanionProfiles.rocky
+        activeMovementMode = conversation.movementMode ?? activeProfile.movementMode
         conversationCreatedAt = conversation.createdAt
         model = conversation.model
         history = conversation.history
@@ -327,27 +354,14 @@ final class RockyViewModel: ObservableObject {
             return
         }
 
-        if activeProfile.movementMode == mode {
+        if activeMovementMode == mode {
             appendTerminal("system: mode already \(mode.rawValue)")
             persist()
             return
         }
 
-        let preferredKind = activeProfile.kind
-        let next = availableProfiles.first {
-            $0.kind == preferredKind && $0.movementMode == mode
-        } ?? availableProfiles.first {
-            $0.movementMode == mode
-        }
-
-        guard let next else {
-            appendTerminal("system: no \(mode.rawValue) profile")
-            persist()
-            return
-        }
-
-        activeProfile = next
-        appendTerminal("system: mode \(mode.rawValue) via \(next.name)")
+        activeMovementMode = mode
+        appendTerminal("system: mode \(mode.rawValue)")
         persist()
     }
 

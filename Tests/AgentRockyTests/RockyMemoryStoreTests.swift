@@ -32,10 +32,10 @@ final class RockyMemoryStoreTests: XCTestCase {
         let store = RockyMemoryStore(rootURL: rootURL)
         let first = store.loadState().active
 
-        let secondState = store.createConversation(profileID: "desk-cat", model: "default")
+        let secondState = store.createConversation(profileID: "orange-cat", model: "default")
 
         XCTAssertNotEqual(first.id, secondState.active.id)
-        XCTAssertEqual(secondState.active.profileID, "desk-cat")
+        XCTAssertEqual(secondState.active.profileID, "orange-cat")
         XCTAssertEqual(secondState.summaries.count, 2)
         XCTAssertNotNil(store.selectConversation(id: first.id))
     }
@@ -47,7 +47,7 @@ final class RockyMemoryStoreTests: XCTestCase {
         first.terminalLines = ["agent rocky v0.3", "> hi", "rocky: yes"]
         first.history = [ChatTurn(user: "hi", rocky: "yes")]
         store.saveConversation(first)
-        _ = store.createConversation(profileID: "desk-cat")
+        _ = store.createConversation(profileID: "orange-cat")
 
         let selected = store.selectConversation(id: first.id)
 
@@ -59,7 +59,7 @@ final class RockyMemoryStoreTests: XCTestCase {
     func testDeleteConversationFallsBackToRemainingConversation() {
         let store = RockyMemoryStore(rootURL: rootURL)
         let first = store.loadState().active
-        let second = store.createConversation(profileID: "desk-cat").active
+        let second = store.createConversation(profileID: "orange-cat").active
 
         let state = store.deleteConversation(id: second.id)
 

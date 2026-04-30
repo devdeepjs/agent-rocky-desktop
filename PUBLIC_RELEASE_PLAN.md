@@ -8,9 +8,9 @@ Agent Rocky is a local macOS Swift prototype with:
 - Hover terminal.
 - Local Codex CLI brain.
 - Multi-conversation persistence with old-chat selection.
-- Stage mode for a larger chat window.
-- Bundled companion profiles.
-- Cinematic Rocky view and cozy cat view.
+- Stage mode for a larger chat window and full mode for a near-full-screen window.
+- Three bundled companion profiles.
+- Cinematic Rocky view, 8-bit orange cat view, and cute buddy view.
 - Animation validation and profile-safe command animations.
 - Basic automated tests plus manual build and launch checks.
 
@@ -112,9 +112,9 @@ Profile fields:
 Bundled standard profiles:
 
 - `rocky` - loyal, odd, practical companion.
-- `desk-cat` - cozy cat that sleeps, licks, and plays in place.
-- `wander-cat` - dynamic cat that can move around the screen.
-- `focus-buddy` - direct low-noise work companion.
+- `rocky` - loyal, odd, practical companion with a Jarvis-like assistant feel.
+- `orange-cat` - 8-bit orange cat that sleeps, licks, purrs, and plays.
+- `cute-buddy` - soft focus buddy for low-noise encouragement.
 
 Custom profile behavior:
 
@@ -167,6 +167,7 @@ Done criteria:
 - Pixel style and cinematic style can both exist.
 - Any profile can use any valid animation.
 - Bad brain output cannot break rendering.
+- Dynamic movement is a mode, not a separate profile.
 - Dynamic movement never pushes the terminal fully off-screen.
 - Idle behaviors run without starting a Codex request.
 

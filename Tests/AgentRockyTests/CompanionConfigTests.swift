@@ -13,21 +13,27 @@ final class CompanionConfigTests: XCTestCase {
     func testStandardProfilesIncludeRockyAndCats() {
         let ids = Set(StandardCompanionProfiles.all.map(\.id))
 
+        XCTAssertEqual(ids.count, 3)
         XCTAssertTrue(ids.contains("rocky"))
-        XCTAssertTrue(ids.contains("desk-cat"))
-        XCTAssertTrue(ids.contains("wander-cat"))
+        XCTAssertTrue(ids.contains("orange-cat"))
+        XCTAssertTrue(ids.contains("cute-buddy"))
     }
 
-    func testDynamicMovementCanBeConfiguredPerProfile() {
+    func testProfilesHaveDefaultMovementModes() {
         XCTAssertEqual(StandardCompanionProfiles.rocky.movementMode, .static)
-        XCTAssertEqual(StandardCompanionProfiles.wanderCat.movementMode, .dynamic)
+        XCTAssertEqual(StandardCompanionProfiles.orangeCat.movementMode, .static)
     }
 
     func testAnimationFallsBackToDefaultWhenNotAllowed() {
-        let profile = StandardCompanionProfiles.deskCat
+        let profile = StandardCompanionProfiles.orangeCat
 
         XCTAssertEqual(profile.animationOrDefault(.lick), .lick)
         XCTAssertEqual(profile.animationOrDefault(.rollInBox), .idle)
+    }
+
+    func testOldCatProfileIdsMapToOrangeCat() {
+        XCTAssertEqual(StandardCompanionProfiles.profile(id: "desk-cat")?.id, "orange-cat")
+        XCTAssertEqual(StandardCompanionProfiles.profile(id: "wander-cat")?.id, "orange-cat")
     }
 
     func testInvalidProfileReportsUsefulIssues() {
@@ -37,7 +43,7 @@ final class CompanionConfigTests: XCTestCase {
             kind: .custom,
             systemPrompt: "",
             defaultModel: nil,
-            visualStyle: .custom,
+            visualStyle: .cuteBuddy,
             movementMode: .static,
             defaultAnimation: .walk,
             allowedAnimations: [.idle],

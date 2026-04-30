@@ -13,6 +13,7 @@ struct RockyConversation: Codable, Equatable, Identifiable, Sendable {
     var updatedAt: Date
     var codexSessionID: String?
     var profileID: String
+    var movementMode: CompanionMovementMode?
     var model: String
     var terminalLines: [String]
     var history: [ChatTurn]
@@ -34,6 +35,7 @@ struct RockyConversation: Codable, Equatable, Identifiable, Sendable {
             updatedAt: now,
             codexSessionID: nil,
             profileID: profileID,
+            movementMode: nil,
             model: model,
             terminalLines: [
                 "agent rocky v0.3",
@@ -196,6 +198,7 @@ final class RockyMemoryStore {
             updatedAt: now,
             codexSessionID: snapshot.sessionID,
             profileID: "rocky",
+            movementMode: nil,
             model: "",
             terminalLines: snapshot.terminalLines.isEmpty ? ["agent rocky v0.3", "imported chat"] : snapshot.terminalLines,
             history: snapshot.history

@@ -28,16 +28,17 @@ Type these in the terminal:
 
 ```text
 /open              open larger stage mode
+/full              expand to a near-full-screen app window
 /mini              return to small buddy mode
 /new               create a new chat
 /chats             list recent chats
 /profiles          list bundled profiles
-/profile desk-cat  switch companion profile
-/mode dynamic      switch to a dynamic profile when available
+/profile orange-cat switch companion profile
+/mode dynamic      let the small companion move around the safe screen area
 /animate purr      run a profile-safe animation
 ```
 
-Bundled profiles currently include `rocky`, `desk-cat`, `wander-cat`, and `focus-buddy`.
+Bundled profiles currently include `rocky`, `orange-cat`, and `cute-buddy`.
 
 ## Brain
 

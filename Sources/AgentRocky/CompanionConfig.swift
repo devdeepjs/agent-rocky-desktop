@@ -9,8 +9,8 @@ enum CompanionKind: String, CaseIterable, Codable, Sendable {
 enum CompanionVisualStyle: String, CaseIterable, Codable, Sendable {
     case cinematicRocky
     case pixelRocky
-    case cozyCat
-    case custom
+    case orangePixelCat
+    case cuteBuddy
 }
 
 enum CompanionMovementMode: String, CaseIterable, Codable, Sendable {
@@ -113,7 +113,7 @@ enum StandardCompanionProfiles {
         name: "Rocky",
         kind: .rocky,
         systemPrompt: """
-        You are Rocky, a loyal tiny desktop companion. The user is your Grace: your human, engineer, and friend. Speak in short, warm, slightly odd English. Be useful first.
+        You are Rocky, Devdeep's loyal desktop intelligence and companion. Devdeep is your Grace: your human, engineer, and friend. Be useful like a quiet cockpit assistant, warm like Rocky, and practical first. Speak short, slightly odd, never generic.
         """,
         defaultModel: nil,
         visualStyle: .cinematicRocky,
@@ -124,62 +124,52 @@ enum StandardCompanionProfiles {
         accentColorHex: "#5CFF94"
     )
 
-    static let deskCat = CompanionProfile(
-        id: "desk-cat",
-        name: "Desk Cat",
+    static let orangeCat = CompanionProfile(
+        id: "orange-cat",
+        name: "Orange Cat",
         kind: .cat,
         systemPrompt: """
-        You are a tiny desk cat companion. Be calm, cozy, and lightly mischievous. Keep replies short and helpful.
+        You are a tiny orange desk cat companion. Be cozy, playful, a little mischievous, and still helpful. Keep replies short. Purr when the user needs calm.
         """,
         defaultModel: nil,
-        visualStyle: .cozyCat,
+        visualStyle: .orangePixelCat,
         movementMode: .static,
         defaultAnimation: .idle,
-        allowedAnimations: [.idle, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
+        allowedAnimations: [.idle, .walk, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
         idleBehaviors: [.sleeping, .licking, .playing, .lookingAround],
         accentColorHex: "#FFB35C"
     )
 
-    static let wanderCat = CompanionProfile(
-        id: "wander-cat",
-        name: "Wander Cat",
-        kind: .cat,
-        systemPrompt: """
-        You are a tiny cat companion that roams around while the user works. Be playful, concise, and practical.
-        """,
-        defaultModel: nil,
-        visualStyle: .cozyCat,
-        movementMode: .dynamic,
-        defaultAnimation: .walk,
-        allowedAnimations: [.idle, .walk, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
-        idleBehaviors: [.playing, .lookingAround, .sleeping],
-        accentColorHex: "#72D7FF"
-    )
-
-    static let focusBuddy = CompanionProfile(
-        id: "focus-buddy",
-        name: "Focus Buddy",
+    static let cuteBuddy = CompanionProfile(
+        id: "cute-buddy",
+        name: "Cute Buddy",
         kind: .custom,
         systemPrompt: """
-        You are a tiny focus companion. Keep the user moving with direct, low-noise answers. Prefer one next action.
+        You are a tiny cute desktop buddy. Be sweet, concise, and useful. When work is confusing, give one small next step and a soft nudge.
         """,
         defaultModel: nil,
-        visualStyle: .custom,
+        visualStyle: .cuteBuddy,
         movementMode: .static,
         defaultAnimation: .workInPlace,
-        allowedAnimations: [.idle, .think, .pulse, .workInPlace, .happyBounce],
-        idleBehaviors: [.working, .watching],
+        allowedAnimations: [.idle, .wave, .think, .pulse, .workInPlace, .happyBounce, .excited],
+        idleBehaviors: [.working, .watching, .lookingAround],
         accentColorHex: "#B7FF5C"
     )
 
     static let all: [CompanionProfile] = [
         rocky,
-        deskCat,
-        wanderCat,
-        focusBuddy
+        orangeCat,
+        cuteBuddy
     ]
 
     static func profile(id: String) -> CompanionProfile? {
-        all.first { $0.id == id }
+        switch id {
+        case "desk-cat", "wander-cat":
+            return orangeCat
+        case "focus-buddy":
+            return cuteBuddy
+        default:
+            return all.first { $0.id == id }
+        }
     }
 }
