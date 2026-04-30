@@ -4,9 +4,10 @@ import SwiftUI
 struct RockyRootView: View {
     @ObservedObject var viewModel: RockyViewModel
     @State private var isHovering = false
+    @State private var isMiniTerminalDismissed = false
 
     private var terminalVisible: Bool {
-        viewModel.isStageOpen || isHovering || viewModel.isThinking || !viewModel.input.isEmpty
+        viewModel.isStageOpen || viewModel.isThinking || !viewModel.input.isEmpty || (isHovering && !isMiniTerminalDismissed)
     }
 
     private var isLargeWindow: Bool {
@@ -48,7 +49,12 @@ struct RockyRootView: View {
                 .frame(width: isLargeWindow ? 220 : 156, height: isLargeWindow ? 176 : 132)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.poke()
+                    if terminalVisible && !viewModel.isStageOpen && !viewModel.isThinking && viewModel.input.isEmpty {
+                        dismissMiniTerminal()
+                    } else {
+                        isMiniTerminalDismissed = false
+                        viewModel.poke()
+                    }
                 }
                 .offset(y: terminalVisible ? 6 : -2)
 
@@ -72,9 +78,13 @@ struct RockyRootView: View {
         .onHover { hovering in
             withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
                 isHovering = hovering
+                if !hovering {
+                    isMiniTerminalDismissed = false
+                }
             }
         }
         .onChange(of: viewModel.isStageOpen) { _, isOpen in
+            isMiniTerminalDismissed = false
             resizePanelForStage(isOpen)
         }
         .task(id: "\(viewModel.activeConversationID)-\(viewModel.activeProfile.id)") {
@@ -135,6 +145,12 @@ struct RockyRootView: View {
         )
 
         window.setFrameOrigin(nextOrigin)
+    }
+
+    private func dismissMiniTerminal() {
+        withAnimation(.spring(response: 0.22, dampingFraction: 0.82)) {
+            isMiniTerminalDismissed = true
+        }
     }
 }
 

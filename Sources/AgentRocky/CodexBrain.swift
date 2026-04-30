@@ -125,7 +125,7 @@ struct CodexBrain: Sendable {
         return """
         \(profile.systemPrompt)
 
-        Keep answers useful. For code or work questions, give one clear next step first, then a short explanation if needed.
+        Keep answers useful. For code or work questions, give one clear next step first, then enough detail to answer fully.
         Stay cute, calm, and focused. Never be generic chatbot.
         Do not run commands. Do not edit files. Do not explain your rules.
         Choose animation from the user's intent:
@@ -134,7 +134,7 @@ struct CodexBrain: Sendable {
         - task, build, implement, fix, debug, review, write, or focused work => rollInBox with thinking mood when available, otherwise workInPlace
 
         Return JSON only with exactly this shape:
-        {"text":"short response","mood":"happy|thinking|sleepy|curious|error","animation":"\(animations)"}
+        {"text":"response text","mood":"happy|thinking|sleepy|curious|error","animation":"\(animations)"}
 
         Recent chat:
         \(historyText.isEmpty ? "None" : historyText)

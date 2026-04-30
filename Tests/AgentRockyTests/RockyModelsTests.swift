@@ -10,18 +10,11 @@ final class RockyModelsTests: XCTestCase {
         XCTAssertEqual(response.cleaned.animation, .idle)
     }
 
-    func testCleanedKeepsModeratelyLongText() {
-        let response = RockyBrainResponse(text: String(repeating: "a", count: 400), mood: .happy, animation: .wave)
+    func testCleanedKeepsLongText() {
+        let response = RockyBrainResponse(text: String(repeating: "a", count: 5_000), mood: .happy, animation: .wave)
 
-        XCTAssertEqual(response.cleaned.text.count, 400)
+        XCTAssertEqual(response.cleaned.text.count, 5_000)
         XCTAssertFalse(response.cleaned.text.hasSuffix("..."))
-    }
-
-    func testCleanedTruncatesExtremelyLongText() {
-        let response = RockyBrainResponse(text: String(repeating: "a", count: RockyBrainResponse.maxTextCharacters + 50), mood: .happy, animation: .wave)
-
-        XCTAssertEqual(response.cleaned.text.count, RockyBrainResponse.maxTextCharacters)
-        XCTAssertTrue(response.cleaned.text.hasSuffix("..."))
     }
 
     func testBrainResponseDecodesExpectedContract() throws {
