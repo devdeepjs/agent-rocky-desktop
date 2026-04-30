@@ -28,7 +28,6 @@ Type these in the terminal:
 
 ```text
 /open              open larger stage mode
-/full              expand to a near-full-screen app window
 /mini              return to small buddy mode
 /new               create a new chat
 /chats             list recent chats

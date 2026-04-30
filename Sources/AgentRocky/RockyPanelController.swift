@@ -37,7 +37,7 @@ final class RockyPanelController {
         panel.isReleasedWhenClosed = false
         panel.level = .statusBar
         panel.minSize = NSSize(width: 240, height: 250)
-        panel.maxSize = NSSize(width: 4096, height: 4096)
+        panel.maxSize = NSSize(width: 1100, height: 900)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
     }
 

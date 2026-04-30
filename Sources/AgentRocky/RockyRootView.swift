@@ -6,11 +6,11 @@ struct RockyRootView: View {
     @State private var isHovering = false
 
     private var terminalVisible: Bool {
-        viewModel.isStageOpen || viewModel.isFullOpen || isHovering || viewModel.isThinking || !viewModel.input.isEmpty
+        viewModel.isStageOpen || isHovering || viewModel.isThinking || !viewModel.input.isEmpty
     }
 
     private var isLargeWindow: Bool {
-        viewModel.isStageOpen || viewModel.isFullOpen
+        viewModel.isStageOpen
     }
 
     var body: some View {
@@ -24,7 +24,6 @@ struct RockyRootView: View {
                     isUsingFallback: viewModel.isUsingFallback,
                     brainStatus: viewModel.brainStatus,
                     isStageOpen: viewModel.isStageOpen,
-                    isFullOpen: viewModel.isFullOpen,
                     activeProfile: viewModel.activeProfile,
                     availableProfiles: viewModel.availableProfiles,
                     conversations: viewModel.conversations,
@@ -33,8 +32,6 @@ struct RockyRootView: View {
                     newChat: viewModel.newChat,
                     openStage: viewModel.openStage,
                     closeStage: viewModel.closeStage,
-                    openFull: viewModel.openFull,
-                    closeFullToStage: viewModel.closeFullToStage,
                     switchProfile: viewModel.switchProfile,
                     selectChat: viewModel.selectChat,
                     deleteChat: viewModel.deleteActiveChat,
@@ -64,12 +61,12 @@ struct RockyRootView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .frame(
-            minWidth: viewModel.isFullOpen ? 720 : (viewModel.isStageOpen ? 560 : 240),
-            idealWidth: viewModel.isFullOpen ? 1100 : (viewModel.isStageOpen ? 760 : 360),
-            maxWidth: viewModel.isFullOpen ? .infinity : (viewModel.isStageOpen ? 940 : 620),
-            minHeight: viewModel.isFullOpen ? 560 : (viewModel.isStageOpen ? 500 : 250),
-            idealHeight: viewModel.isFullOpen ? 760 : (viewModel.isStageOpen ? 660 : 390),
-            maxHeight: viewModel.isFullOpen ? .infinity : (viewModel.isStageOpen ? 820 : 720)
+            minWidth: viewModel.isStageOpen ? 560 : 240,
+            idealWidth: viewModel.isStageOpen ? 760 : 360,
+            maxWidth: viewModel.isStageOpen ? 940 : 620,
+            minHeight: viewModel.isStageOpen ? 500 : 250,
+            idealHeight: viewModel.isStageOpen ? 660 : 390,
+            maxHeight: viewModel.isStageOpen ? 820 : 720
         )
         .background(Color.clear)
         .onHover { hovering in
@@ -78,10 +75,7 @@ struct RockyRootView: View {
             }
         }
         .onChange(of: viewModel.isStageOpen) { _, isOpen in
-            resizePanelForMode(stage: isOpen, full: viewModel.isFullOpen)
-        }
-        .onChange(of: viewModel.isFullOpen) { _, isOpen in
-            resizePanelForMode(stage: viewModel.isStageOpen, full: isOpen)
+            resizePanelForStage(isOpen)
         }
         .task(id: "\(viewModel.activeConversationID)-\(viewModel.activeProfile.id)") {
             while !Task.isCancelled {
@@ -92,32 +86,28 @@ struct RockyRootView: View {
         .task(id: "\(viewModel.activeProfile.id)-\(viewModel.isStageOpen)") {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(7))
-                if viewModel.activeMovementMode == .dynamic && !isLargeWindow {
+                if viewModel.activeMovementMode == .dynamic && !viewModel.isStageOpen {
                     nudgePanelForDynamicCompanion()
                 }
             }
         }
     }
 
-    private func resizePanelForMode(stage isStageOpen: Bool, full isFullOpen: Bool) {
+    private func resizePanelForStage(_ isStageOpen: Bool) {
         guard let window = NSApp.windows.first(where: { $0.title == "Agent Rocky" }) else {
             return
         }
 
         let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
         guard screenFrame.width > 1, screenFrame.height > 1 else {
-            window.setContentSize(isFullOpen ? NSSize(width: 1100, height: 760) : (isStageOpen ? NSSize(width: 760, height: 660) : NSSize(width: 360, height: 390)))
+            window.setContentSize(isStageOpen ? NSSize(width: 760, height: 660) : NSSize(width: 360, height: 390))
             return
         }
 
-        let size = isFullOpen
-            ? NSSize(width: screenFrame.width - 28, height: screenFrame.height - 28)
-            : isStageOpen
+        let size = isStageOpen
             ? NSSize(width: min(760, screenFrame.width * 0.72), height: min(660, screenFrame.height * 0.72))
             : NSSize(width: 360, height: 390)
-        let origin = isFullOpen
-            ? NSPoint(x: screenFrame.minX + 14, y: screenFrame.minY + 14)
-            : isStageOpen
+        let origin = isStageOpen
             ? NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.midY - size.height / 2)
             : NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.minY + 18)
 
@@ -156,7 +146,6 @@ private struct RockyTerminal: View {
     let isUsingFallback: Bool
     let brainStatus: String
     let isStageOpen: Bool
-    let isFullOpen: Bool
     let activeProfile: CompanionProfile
     let availableProfiles: [CompanionProfile]
     let conversations: [RockyConversationSummary]
@@ -165,14 +154,16 @@ private struct RockyTerminal: View {
     let newChat: () -> Void
     let openStage: () -> Void
     let closeStage: () -> Void
-    let openFull: () -> Void
-    let closeFullToStage: () -> Void
     let switchProfile: (String) -> Void
     let selectChat: (String) -> Void
     let deleteChat: () -> Void
     let quit: () -> Void
 
     @FocusState private var inputFocused: Bool
+
+    private var terminalTitle: String {
+        activeProfile.id == "rocky" ? "rocky.term" : "\(activeProfile.id).term"
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -224,11 +215,11 @@ private struct RockyTerminal: View {
         }
         .font(.system(size: 12, weight: .bold, design: .monospaced))
         .frame(
-            minWidth: isFullOpen ? 680 : (isStageOpen ? 520 : 220),
-            idealWidth: isFullOpen ? 980 : (isStageOpen ? 700 : 330),
+            minWidth: isStageOpen ? 520 : 220,
+            idealWidth: isStageOpen ? 700 : 330,
             maxWidth: .infinity,
-            minHeight: isFullOpen ? 470 : (isStageOpen ? 350 : 126),
-            idealHeight: isFullOpen ? 620 : (isStageOpen ? 500 : 178),
+            minHeight: isStageOpen ? 350 : 126,
+            idealHeight: isStageOpen ? 500 : 178,
             maxHeight: .infinity
         )
         .background(
@@ -250,52 +241,49 @@ private struct RockyTerminal: View {
                 .shadow(color: isUsingFallback ? .red.opacity(0.7) : .green.opacity(0.7), radius: 5)
                 .help(brainStatus)
 
-            Text(activeProfile.name.lowercased().replacingOccurrences(of: " ", with: "-") + ".term")
+            Text(terminalTitle)
                 .foregroundStyle(Color(red: 0.78, green: 1.0, blue: 0.72))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: isStageOpen ? 190 : 92, alignment: .leading)
 
-            Spacer()
+            Spacer(minLength: 4)
 
-            TextField("default", text: $model)
-                .textFieldStyle(.plain)
-                .foregroundStyle(.white.opacity(0.72))
-                .frame(width: 62)
-                .help("Model override. Leave blank for Codex default.")
+            if isStageOpen {
+                TextField("default", text: $model)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.72))
+                    .frame(width: 78)
+                    .help("Model override. Leave blank for Codex default.")
 
-            Button(action: isStageOpen && !isFullOpen ? closeStage : openStage) {
-                Image(systemName: isStageOpen && !isFullOpen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
+                Menu {
+                    ForEach(availableProfiles) { profile in
+                        Button {
+                            switchProfile(profile.id)
+                        } label: {
+                            Label(
+                                profile.name,
+                                systemImage: profile.id == activeProfile.id ? "checkmark.circle.fill" : "person.crop.circle"
+                            )
+                        }
+                    }
+                } label: {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .black))
+                        .frame(width: 24, height: 20)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Profiles")
+            }
+
+            Button(action: isStageOpen ? closeStage : openStage) {
+                Image(systemName: isStageOpen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")
                     .font(.system(size: 10, weight: .black))
                     .frame(width: 24, height: 20)
             }
             .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.78, green: 0.68, blue: 1.0)))
-            .help(isStageOpen && !isFullOpen ? "Mini mode" : "Open stage")
-
-            Button(action: isFullOpen ? closeFullToStage : openFull) {
-                Image(systemName: isFullOpen ? "arrow.down.right.and.arrow.up.left.circle" : "arrow.up.left.and.arrow.down.right.circle")
-                    .font(.system(size: 10, weight: .black))
-                    .frame(width: 24, height: 20)
-            }
-            .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.95, green: 0.92, blue: 0.78)))
-            .help(isFullOpen ? "Back to stage" : "Full window")
-
-            Menu {
-                ForEach(availableProfiles) { profile in
-                    Button {
-                        switchProfile(profile.id)
-                    } label: {
-                        Label(
-                            profile.name,
-                            systemImage: profile.id == activeProfile.id ? "checkmark.circle.fill" : "person.crop.circle"
-                        )
-                    }
-                }
-            } label: {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 10, weight: .black))
-                    .frame(width: 24, height: 20)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Profiles")
+            .help(isStageOpen ? "Mini mode" : "Open stage")
 
             Menu {
                 if conversations.isEmpty {
@@ -728,6 +716,10 @@ private struct RockyCreatureView: View {
             ZStack(alignment: .topLeading) {
                 shadow
 
+                if showsGraceHalo {
+                    RockyGraceHalo(active: gaitFrame, accent: moodAccent)
+                }
+
                 if animation == .rollInBox {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .fill(Color(red: 0.18, green: 0.10, blue: 0.05).opacity(0.62))
@@ -784,6 +776,15 @@ private struct RockyCreatureView: View {
             .frame(width: 106, height: 17)
             .blur(radius: 4)
             .offset(x: 37, y: 123)
+    }
+
+    private var showsGraceHalo: Bool {
+        switch animation {
+        case .happyBounce, .excited, .thumbsUp, .rollInBox:
+            return true
+        default:
+            return mood == .happy
+        }
     }
 
     private var verticalMotion: CGFloat {
@@ -922,6 +923,136 @@ private struct RockyCreatureView: View {
         case .error:
             return Color(red: 1.0, green: 0.32, blue: 0.22)
         }
+    }
+}
+
+private struct RockyGraceHalo: View {
+    let active: Bool
+    let accent: Color
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Circle()
+                .trim(from: 0.08, to: 0.88)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.80, green: 0.62, blue: 1.0).opacity(0.82),
+                            Color(red: 0.95, green: 0.68, blue: 0.90).opacity(0.56),
+                            Color(red: 0.72, green: 0.54, blue: 1.0).opacity(0.76)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    style: StrokeStyle(lineWidth: 2.4, lineCap: .round)
+                )
+                .frame(width: 150, height: 104)
+                .rotationEffect(.degrees(active ? -7 : 5))
+                .offset(x: 15, y: 11)
+
+            HeartShape()
+                .fill(Color(red: 1.0, green: 0.38, blue: 0.58).opacity(0.92))
+                .frame(width: 15, height: 13)
+                .rotationEffect(.degrees(active ? 7 : -4))
+                .offset(x: 81, y: active ? 2 : 5)
+                .shadow(color: Color(red: 1.0, green: 0.38, blue: 0.58).opacity(0.5), radius: 5)
+
+            ForEach(Array(stars.enumerated()), id: \.offset) { index, star in
+                StarShape(points: 5, innerRatio: 0.48)
+                    .fill(index.isMultiple(of: 2) ? Color(red: 1.0, green: 0.92, blue: 0.58) : accent)
+                    .frame(width: star.size, height: star.size)
+                    .rotationEffect(.degrees(active ? star.rotation + 16 : star.rotation - 10))
+                    .offset(
+                        x: star.x,
+                        y: star.y + (active == star.liftsOnActive ? -4 : 2)
+                    )
+                    .shadow(color: accent.opacity(0.28), radius: 4)
+            }
+        }
+        .frame(width: 180, height: 150)
+        .opacity(active ? 0.98 : 0.78)
+        .allowsHitTesting(false)
+    }
+
+    private var stars: [GraceStar] {
+        [
+            GraceStar(x: 31, y: 23, size: 11, rotation: -12, liftsOnActive: true),
+            GraceStar(x: 54, y: 6, size: 8, rotation: 8, liftsOnActive: false),
+            GraceStar(x: 126, y: 16, size: 10, rotation: 18, liftsOnActive: true),
+            GraceStar(x: 146, y: 40, size: 7, rotation: -24, liftsOnActive: false),
+            GraceStar(x: 23, y: 55, size: 7, rotation: 32, liftsOnActive: true)
+        ]
+    }
+}
+
+private struct GraceStar {
+    let x: CGFloat
+    let y: CGFloat
+    let size: CGFloat
+    let rotation: Double
+    let liftsOnActive: Bool
+}
+
+private struct StarShape: Shape {
+    let points: Int
+    let innerRatio: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let outerRadius = min(rect.width, rect.height) / 2
+        let innerRadius = outerRadius * innerRatio
+        let step = .pi / CGFloat(points)
+
+        var path = Path()
+        for index in 0..<(points * 2) {
+            let radius = index.isMultiple(of: 2) ? outerRadius : innerRadius
+            let angle = CGFloat(index) * step - .pi / 2
+            let point = CGPoint(
+                x: center.x + cos(angle) * radius,
+                y: center.y + sin(angle) * radius
+            )
+
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+
+        path.closeSubpath()
+        return path
+    }
+}
+
+private struct HeartShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let w = rect.width
+        let h = rect.height
+
+        path.move(to: CGPoint(x: rect.minX + w * 0.50, y: rect.minY + h * 0.88))
+        path.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.05, y: rect.minY + h * 0.34),
+            control1: CGPoint(x: rect.minX + w * 0.18, y: rect.minY + h * 0.66),
+            control2: CGPoint(x: rect.minX - w * 0.04, y: rect.minY + h * 0.42)
+        )
+        path.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.50, y: rect.minY + h * 0.18),
+            control1: CGPoint(x: rect.minX + w * 0.12, y: rect.minY - h * 0.02),
+            control2: CGPoint(x: rect.minX + w * 0.42, y: rect.minY + h * 0.02)
+        )
+        path.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.95, y: rect.minY + h * 0.34),
+            control1: CGPoint(x: rect.minX + w * 0.58, y: rect.minY + h * 0.02),
+            control2: CGPoint(x: rect.minX + w * 0.88, y: rect.minY - h * 0.02)
+        )
+        path.addCurve(
+            to: CGPoint(x: rect.minX + w * 0.50, y: rect.minY + h * 0.88),
+            control1: CGPoint(x: rect.minX + w * 1.04, y: rect.minY + h * 0.42),
+            control2: CGPoint(x: rect.minX + w * 0.82, y: rect.minY + h * 0.66)
+        )
+        path.closeSubpath()
+        return path
     }
 }
 

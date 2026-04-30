@@ -8,7 +8,7 @@ Agent Rocky is a local macOS Swift prototype with:
 - Hover terminal.
 - Local Codex CLI brain.
 - Multi-conversation persistence with old-chat selection.
-- Stage mode for a larger chat window and full mode for a near-full-screen window.
+- Mini mode and stage mode for the chat window.
 - Three bundled companion profiles.
 - Cinematic Rocky view, 8-bit orange cat view, and cute buddy view.
 - Animation validation and profile-safe command animations.

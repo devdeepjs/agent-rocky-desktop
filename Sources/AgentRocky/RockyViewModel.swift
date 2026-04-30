@@ -12,7 +12,6 @@ final class RockyViewModel: ObservableObject {
     @Published var brainStatus = "Codex default"
     @Published var isUsingFallback = false
     @Published var isStageOpen = false
-    @Published var isFullOpen = false
     @Published var activeConversationID = ""
     @Published var conversations: [RockyConversationSummary] = []
     @Published var availableProfiles = StandardCompanionProfiles.all
@@ -137,34 +136,16 @@ final class RockyViewModel: ObservableObject {
     }
 
     func openStage() {
-        guard !isStageOpen || isFullOpen else { return }
+        guard !isStageOpen else { return }
         isStageOpen = true
-        isFullOpen = false
         appendTerminal("system: stage open")
         persist()
     }
 
     func closeStage() {
-        guard isStageOpen || isFullOpen else { return }
+        guard isStageOpen else { return }
         isStageOpen = false
-        isFullOpen = false
         appendTerminal("system: mini mode")
-        persist()
-    }
-
-    func openFull() {
-        guard !isFullOpen else { return }
-        isStageOpen = true
-        isFullOpen = true
-        appendTerminal("system: full window")
-        persist()
-    }
-
-    func closeFullToStage() {
-        guard isFullOpen else { return }
-        isStageOpen = true
-        isFullOpen = false
-        appendTerminal("system: stage open")
         persist()
     }
 
@@ -215,12 +196,6 @@ final class RockyViewModel: ObservableObject {
         case "/open", "/stage":
             appendTerminal("> \(message)")
             openStage()
-            persist()
-            return true
-
-        case "/full":
-            appendTerminal("> \(message)")
-            openFull()
             persist()
             return true
 
