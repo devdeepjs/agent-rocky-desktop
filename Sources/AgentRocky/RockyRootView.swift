@@ -40,8 +40,8 @@ struct RockyRootView: View {
                 .padding(.bottom, viewModel.isStageOpen ? 126 : 118)
             }
 
-            RockyCreatureView(mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
-                .frame(width: 156, height: 132)
+            CompanionCreatureView(profile: viewModel.activeProfile, mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
+                .frame(width: viewModel.isStageOpen ? 220 : 156, height: viewModel.isStageOpen ? 176 : 132)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.poke()
@@ -73,6 +73,20 @@ struct RockyRootView: View {
         .onChange(of: viewModel.isStageOpen) { _, isOpen in
             resizePanelForStage(isOpen)
         }
+        .task(id: "\(viewModel.activeConversationID)-\(viewModel.activeProfile.id)") {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(14))
+                viewModel.performIdleBehavior()
+            }
+        }
+        .task(id: "\(viewModel.activeProfile.id)-\(viewModel.isStageOpen)") {
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(7))
+                if viewModel.activeProfile.movementMode == .dynamic && !viewModel.isStageOpen {
+                    nudgePanelForDynamicCompanion()
+                }
+            }
+        }
     }
 
     private func resizePanelForStage(_ isOpen: Bool) {
@@ -94,6 +108,29 @@ struct RockyRootView: View {
             : NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.minY + 18)
 
         window.setFrame(NSRect(origin: origin, size: size), display: true, animate: true)
+    }
+
+    private func nudgePanelForDynamicCompanion() {
+        guard let window = NSApp.windows.first(where: { $0.title == "Agent Rocky" }) else {
+            return
+        }
+
+        let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
+        guard screenFrame.width > window.frame.width + 80,
+              screenFrame.height > window.frame.height + 80 else {
+            return
+        }
+
+        let maxX = screenFrame.maxX - window.frame.width - 24
+        let minX = screenFrame.minX + 24
+        let minY = screenFrame.minY + 18
+        let maxY = max(minY, screenFrame.midY - window.frame.height * 0.3)
+        let nextOrigin = NSPoint(
+            x: CGFloat.random(in: minX...maxX),
+            y: CGFloat.random(in: minY...maxY)
+        )
+
+        window.setFrameOrigin(nextOrigin)
     }
 }
 
@@ -374,6 +411,228 @@ private struct WindowResizeGrip: View {
     }
 }
 
+private struct CompanionCreatureView: View {
+    let profile: CompanionProfile
+    let mood: RockyMood
+    let animation: RockyAnimation
+    let isAwake: Bool
+
+    var body: some View {
+        switch profile.visualStyle {
+        case .cozyCat:
+            CatCompanionView(mood: mood, animation: animation, isAwake: isAwake)
+        default:
+            RockyCreatureView(mood: mood, animation: animation, isAwake: isAwake)
+        }
+    }
+}
+
+private struct CatCompanionView: View {
+    let mood: RockyMood
+    let animation: RockyAnimation
+    let isAwake: Bool
+
+    @State private var wiggle = false
+    @State private var blink = false
+
+    var body: some View {
+        GeometryReader { geometry in
+            let canvas = CGSize(width: 180, height: 150)
+            let scale = min(geometry.size.width / canvas.width, geometry.size.height / canvas.height)
+            let originX = (geometry.size.width - canvas.width * scale) / 2
+            let originY = (geometry.size.height - canvas.height * scale) / 2
+
+            ZStack(alignment: .topLeading) {
+                Ellipse()
+                    .fill(.black.opacity(0.28))
+                    .frame(width: 118, height: 18)
+                    .blur(radius: 4)
+                    .offset(x: 32, y: 121)
+
+                tail
+
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(bodyGradient)
+                    .frame(width: 96, height: isSleeping ? 52 : 66)
+                    .rotationEffect(.degrees(animation == .play || animation == .playBall ? (wiggle ? -4 : 4) : 0))
+                    .offset(x: 44, y: isSleeping ? 72 : 62)
+                    .shadow(color: .black.opacity(0.24), radius: 7, x: 0, y: 6)
+
+                head
+                    .offset(x: isSleeping ? 56 : 53, y: isSleeping ? 54 : 38)
+
+                paws
+
+                if animation == .play || animation == .playBall {
+                    playBall
+                }
+
+                if animation == .purr {
+                    purrGlow
+                }
+            }
+            .frame(width: canvas.width, height: canvas.height)
+            .scaleEffect(scale, anchor: .topLeading)
+            .offset(x: originX, y: originY + verticalMotion)
+            .scaleEffect(isAwake ? 1.04 : 1.0)
+            .animation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true), value: wiggle)
+            .animation(.easeInOut(duration: 0.16), value: isAwake)
+            .onAppear {
+                wiggle = true
+            }
+            .task {
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(3.2))
+                    blink = true
+                    try? await Task.sleep(for: .milliseconds(180))
+                    blink = false
+                }
+            }
+        }
+    }
+
+    private var bodyGradient: LinearGradient {
+        LinearGradient(
+            colors: [
+                Color(red: 0.98, green: 0.70, blue: 0.36),
+                Color(red: 0.78, green: 0.42, blue: 0.18),
+                Color(red: 0.36, green: 0.20, blue: 0.11)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var isSleeping: Bool {
+        animation == .sleep
+    }
+
+    private var verticalMotion: CGFloat {
+        switch animation {
+        case .happyBounce, .excited:
+            return wiggle ? -7 : -2
+        case .walk, .play, .playBall:
+            return wiggle ? -4 : 0
+        case .sleep:
+            return 3
+        default:
+            return wiggle ? -2 : 0
+        }
+    }
+
+    private var head: some View {
+        ZStack {
+            CatEar()
+                .fill(Color(red: 0.75, green: 0.39, blue: 0.17))
+                .frame(width: 26, height: 28)
+                .rotationEffect(.degrees(-16))
+                .offset(x: -25, y: -25)
+
+            CatEar()
+                .fill(Color(red: 0.82, green: 0.45, blue: 0.20))
+                .frame(width: 26, height: 28)
+                .rotationEffect(.degrees(16))
+                .offset(x: 25, y: -25)
+
+            Circle()
+                .fill(bodyGradient)
+                .frame(width: 74, height: 74)
+                .overlay(Circle().stroke(Color(red: 0.15, green: 0.08, blue: 0.04), lineWidth: 2.4))
+
+            Circle()
+                .fill(blink || animation == .sleep ? Color.black.opacity(0.55) : Color.black.opacity(0.88))
+                .frame(width: 7, height: blink || animation == .sleep ? 2 : 8)
+                .offset(x: -14, y: -6)
+
+            Circle()
+                .fill(blink || animation == .sleep ? Color.black.opacity(0.55) : Color.black.opacity(0.88))
+                .frame(width: 7, height: blink || animation == .sleep ? 2 : 8)
+                .offset(x: 14, y: -6)
+
+            Circle()
+                .fill(Color(red: 0.12, green: 0.06, blue: 0.04))
+                .frame(width: 6, height: 5)
+                .offset(y: 7)
+
+            if animation == .lick {
+                Capsule()
+                    .fill(Color(red: 1.0, green: 0.48, blue: 0.58))
+                    .frame(width: 7, height: 15)
+                    .rotationEffect(.degrees(wiggle ? -18 : 10))
+                    .offset(x: -3, y: 17)
+            }
+        }
+        .frame(width: 90, height: 90)
+    }
+
+    private var tail: some View {
+        Path { path in
+            path.move(to: CGPoint(x: 126, y: 86))
+            path.addCurve(
+                to: CGPoint(x: 164, y: wiggle ? 55 : 67),
+                control1: CGPoint(x: 144, y: 83),
+                control2: CGPoint(x: 162, y: 80)
+            )
+        }
+        .stroke(
+            LinearGradient(
+                colors: [Color(red: 0.70, green: 0.36, blue: 0.16), Color(red: 0.25, green: 0.13, blue: 0.07)],
+                startPoint: .leading,
+                endPoint: .trailing
+            ),
+            style: StrokeStyle(lineWidth: 13, lineCap: .round)
+        )
+    }
+
+    private var paws: some View {
+        Group {
+            Capsule()
+                .fill(Color(red: 0.28, green: 0.14, blue: 0.07))
+                .frame(width: 24, height: 12)
+                .offset(x: animation == .walk ? (wiggle ? 54 : 45) : 50, y: 118)
+
+            Capsule()
+                .fill(Color(red: 0.28, green: 0.14, blue: 0.07))
+                .frame(width: 24, height: 12)
+                .offset(x: animation == .walk ? (wiggle ? 103 : 112) : 106, y: 118)
+        }
+    }
+
+    private var playBall: some View {
+        ZStack {
+            Circle()
+                .fill(Color(red: 0.27, green: 0.78, blue: 1.0))
+                .frame(width: 24, height: 24)
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 12))
+                path.addLine(to: CGPoint(x: 24, y: 12))
+            }
+            .stroke(Color.white.opacity(0.72), lineWidth: 2)
+            .frame(width: 24, height: 24)
+        }
+        .rotationEffect(.degrees(wiggle ? 24 : -24))
+        .offset(x: wiggle ? 27 : 20, y: 107)
+    }
+
+    private var purrGlow: some View {
+        Circle()
+            .stroke(Color(red: 1.0, green: 0.80, blue: 0.36).opacity(wiggle ? 0.58 : 0.22), lineWidth: 3)
+            .frame(width: wiggle ? 112 : 88, height: wiggle ? 82 : 64)
+            .offset(x: wiggle ? 34 : 46, y: wiggle ? 45 : 54)
+    }
+}
+
+private struct CatEar: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+
 private struct RockyCreatureView: View {
     let mood: RockyMood
     let animation: RockyAnimation
@@ -394,6 +653,18 @@ private struct RockyCreatureView: View {
             ZStack(alignment: .topLeading) {
                 shadow
 
+                if animation == .rollInBox {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(red: 0.18, green: 0.10, blue: 0.05).opacity(0.62))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .stroke(Color(red: 0.85, green: 0.55, blue: 0.23).opacity(0.74), lineWidth: 3)
+                        )
+                        .frame(width: 116, height: 62)
+                        .rotationEffect(.degrees(gaitFrame ? -5 : 5))
+                        .offset(x: 32, y: 71)
+                }
+
                 backLimbs
 
                 RockyShellShape()
@@ -412,6 +683,7 @@ private struct RockyCreatureView: View {
             .frame(width: canvas.width, height: canvas.height)
             .scaleEffect(scale, anchor: .topLeading)
             .offset(x: originX, y: originY + verticalMotion)
+            .rotationEffect(.degrees(animation == .rollInBox ? (gaitFrame ? -7 : 7) : 0))
             .scaleEffect(isAwake ? 1.04 : 1.0)
             .animation(.easeInOut(duration: 0.16), value: isAwake)
             .animation(.easeInOut(duration: isAwake ? 0.42 : 0.72).repeatForever(autoreverses: true), value: gaitFrame)
@@ -441,14 +713,16 @@ private struct RockyCreatureView: View {
 
     private var verticalMotion: CGFloat {
         switch animation {
-        case .bounce:
+        case .bounce, .happyBounce, .excited:
             return gaitFrame ? -5 : -2
-        case .wave:
+        case .wave, .thumbsUp:
             return gaitFrame ? -3 : -1
-        case .pulse:
+        case .pulse, .think, .workInPlace:
             return gaitFrame ? -4 : -2
-        case .shake:
+        case .shake, .rollInBox:
             return gaitFrame ? -1 : 1
+        case .sleep:
+            return 2
         default:
             return gaitFrame ? -2 : 0
         }

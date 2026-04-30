@@ -26,4 +26,20 @@ final class RockyModelsTests: XCTestCase {
         XCTAssertEqual(response.mood, .happy)
         XCTAssertEqual(response.animation, .bounce)
     }
+
+    func testValidatedResponseKeepsAllowedProfileAnimation() {
+        let response = RockyBrainResponse(text: "purr purr", mood: .happy, animation: .purr)
+
+        let validated = response.validated(for: StandardCompanionProfiles.deskCat)
+
+        XCTAssertEqual(validated.animation, .purr)
+    }
+
+    func testValidatedResponseFallsBackForDisallowedProfileAnimation() {
+        let response = RockyBrainResponse(text: "box", mood: .happy, animation: .rollInBox)
+
+        let validated = response.validated(for: StandardCompanionProfiles.deskCat)
+
+        XCTAssertEqual(validated.animation, .idle)
+    }
 }

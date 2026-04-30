@@ -48,6 +48,23 @@ struct RockyBrainResponse: Codable, Sendable {
 
         return RockyBrainResponse(text: safeText, mood: mood, animation: animation)
     }
+
+    func validated(for profile: CompanionProfile) -> RockyBrainResponse {
+        let cleaned = cleaned
+        guard let companionAnimation = CompanionAnimation(rawValue: cleaned.animation.rawValue) else {
+            return RockyBrainResponse(
+                text: cleaned.text,
+                mood: cleaned.mood,
+                animation: RockyAnimation(companion: profile.defaultAnimation)
+            )
+        }
+
+        return RockyBrainResponse(
+            text: cleaned.text,
+            mood: cleaned.mood,
+            animation: RockyAnimation(companion: profile.animationOrDefault(companionAnimation))
+        )
+    }
 }
 
 struct ChatTurn: Codable, Equatable, Sendable {
@@ -60,4 +77,10 @@ struct RockyBrainResult: Sendable {
     let usedCodex: Bool
     let detail: String
     let sessionID: String?
+}
+
+extension RockyAnimation {
+    init(companion animation: CompanionAnimation) {
+        self = RockyAnimation(rawValue: animation.rawValue) ?? .idle
+    }
 }

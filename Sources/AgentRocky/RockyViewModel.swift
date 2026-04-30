@@ -65,12 +65,13 @@ final class RockyViewModel: ObservableObject {
 
         Task {
             let result = await brain.respond(to: message, model: modelName, history: recentHistory, sessionID: activeSessionID, profile: profile)
-            history.append(ChatTurn(user: message, rocky: result.response.text))
+            let response = result.response.validated(for: profile)
+            history.append(ChatTurn(user: message, rocky: response.text))
             codexSessionID = result.sessionID ?? codexSessionID
             brainStatus = result.detail
             isUsingFallback = !result.usedCodex
-            replaceLastTerminalLine("rocky: \(result.response.text)")
-            apply(result.response)
+            replaceLastTerminalLine("\(profile.name.lowercased()): \(response.text)")
+            apply(response)
             persist()
             isThinking = false
         }
@@ -144,6 +145,15 @@ final class RockyViewModel: ObservableObject {
         isStageOpen = false
         appendTerminal("system: mini mode")
         persist()
+    }
+
+    func performIdleBehavior() {
+        guard !isThinking, input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        let behavior = activeProfile.idleBehaviors.randomElement() ?? .watching
+        apply(response(for: behavior))
     }
 
     private func apply(_ response: RockyBrainResponse) {
@@ -231,6 +241,26 @@ final class RockyViewModel: ObservableObject {
             switchProfile(parts[1])
             return true
 
+        case "/mode":
+            appendTerminal("> \(message)")
+            guard parts.count > 1 else {
+                appendTerminal("system: usage /mode static|dynamic")
+                persist()
+                return true
+            }
+            switchMovementMode(parts[1].lowercased())
+            return true
+
+        case "/animate":
+            appendTerminal("> \(message)")
+            guard parts.count > 1 else {
+                appendTerminal("system: usage /animate happyBounce")
+                persist()
+                return true
+            }
+            runAnimationCommand(parts[1])
+            return true
+
         case "/delete":
             deleteActiveChat()
             appendTerminal("system: deleted active chat")
@@ -239,7 +269,7 @@ final class RockyViewModel: ObservableObject {
 
         case "/help":
             appendTerminal("> \(message)")
-            appendTerminal("system: /open /mini /new /chats /delete /profiles /profile <id>")
+            appendTerminal("system: /open /mini /new /chats /delete /profiles /profile <id> /mode static|dynamic /animate <name>")
             persist()
             return true
 
@@ -288,5 +318,92 @@ final class RockyViewModel: ObservableObject {
         }
 
         return "New chat"
+    }
+
+    private func switchMovementMode(_ rawMode: String) {
+        guard let mode = CompanionMovementMode(rawValue: rawMode) else {
+            appendTerminal("system: mode must be static or dynamic")
+            persist()
+            return
+        }
+
+        if activeProfile.movementMode == mode {
+            appendTerminal("system: mode already \(mode.rawValue)")
+            persist()
+            return
+        }
+
+        let preferredKind = activeProfile.kind
+        let next = availableProfiles.first {
+            $0.kind == preferredKind && $0.movementMode == mode
+        } ?? availableProfiles.first {
+            $0.movementMode == mode
+        }
+
+        guard let next else {
+            appendTerminal("system: no \(mode.rawValue) profile")
+            persist()
+            return
+        }
+
+        activeProfile = next
+        appendTerminal("system: mode \(mode.rawValue) via \(next.name)")
+        persist()
+    }
+
+    private func runAnimationCommand(_ rawAnimation: String) {
+        guard let requested = CompanionAnimation(rawValue: rawAnimation) else {
+            appendTerminal("system: unknown animation \(rawAnimation)")
+            persist()
+            return
+        }
+
+        let selected = activeProfile.animationOrDefault(requested)
+        if selected != requested {
+            appendTerminal("system: \(requested.rawValue) not allowed for \(activeProfile.name), using \(selected.rawValue)")
+        } else {
+            appendTerminal("system: animate \(selected.rawValue)")
+        }
+
+        apply(RockyBrainResponse(
+            text: selected.rawValue,
+            mood: mood(for: selected),
+            animation: RockyAnimation(companion: selected)
+        ))
+        persist()
+    }
+
+    private func response(for behavior: CompanionIdleBehavior) -> RockyBrainResponse {
+        switch behavior {
+        case .watching:
+            return RockyBrainResponse(text: "watching", mood: .curious, animation: .idle)
+        case .sleeping:
+            return RockyBrainResponse(text: "sleeping", mood: .sleepy, animation: .sleep)
+        case .working:
+            return RockyBrainResponse(text: "working", mood: .thinking, animation: .workInPlace)
+        case .lookingAround:
+            return RockyBrainResponse(text: "looking", mood: .curious, animation: .wave)
+        case .licking:
+            return RockyBrainResponse(text: "lick", mood: .happy, animation: .lick)
+        case .playing:
+            return RockyBrainResponse(text: "play", mood: .happy, animation: .play)
+        }
+    }
+
+    private func mood(for animation: CompanionAnimation) -> RockyMood {
+        switch animation {
+        case .sleep:
+            return .sleepy
+        case .think, .workInPlace:
+            return .thinking
+        case .error:
+            return .error
+        case .walk, .wave, .play, .playBall, .lick, .purr:
+            return .curious
+        case .happyBounce, .excited, .thumbsUp, .rollInBox:
+            return .happy
+        case .idle, .pulse:
+            return .curious
+        }
     }
 }
