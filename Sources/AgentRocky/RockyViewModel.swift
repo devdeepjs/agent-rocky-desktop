@@ -385,13 +385,13 @@ final class RockyViewModel: ObservableObject {
         switch animation {
         case .sleep:
             return .sleepy
-        case .think, .workInPlace:
+        case .think, .workInPlace, .rollInBox:
             return .thinking
         case .error:
             return .error
         case .walk, .wave, .play, .playBall, .lick, .purr:
             return .curious
-        case .happyBounce, .excited, .thumbsUp, .rollInBox:
+        case .happyBounce, .excited, .thumbsUp:
             return .happy
         case .idle, .pulse:
             return .curious

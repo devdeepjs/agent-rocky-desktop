@@ -70,6 +70,18 @@ final class RockyModelsTests: XCTestCase {
         XCTAssertEqual(hint, .rollInBox)
     }
 
+    func testApplyingMessageHintMarksTaskAsThinking() {
+        let response = RockyBrainResponse(text: "working", mood: .happy, animation: .idle)
+
+        let hinted = response.applyingMessageAnimationHint(
+            for: "Can you implement this task",
+            profile: StandardCompanionProfiles.rocky
+        )
+
+        XCTAssertEqual(hinted.mood, .thinking)
+        XCTAssertEqual(hinted.animation, .rollInBox)
+    }
+
     func testMessageHintFallsBackToAllowedProfileAnimations() {
         let hint = RockyBrainResponse.messageAnimationHint(
             for: "Good news mate, we shipped it",

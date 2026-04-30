@@ -735,16 +735,8 @@ private struct RockyCreatureView: View {
                     RockyGraceHalo(active: gaitFrame, accent: moodAccent)
                 }
 
-                if animation == .rollInBox {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(red: 0.18, green: 0.10, blue: 0.05).opacity(0.62))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .stroke(Color(red: 0.85, green: 0.55, blue: 0.23).opacity(0.74), lineWidth: 3)
-                        )
-                        .frame(width: 116, height: 62)
-                        .rotationEffect(.degrees(gaitFrame ? -5 : 5))
-                        .offset(x: 32, y: 71)
+                if showsWorkRig {
+                    RockyWorkRig(active: gaitFrame, accent: moodAccent, boxed: animation == .rollInBox)
                 }
 
                 backLimbs
@@ -761,6 +753,10 @@ private struct RockyCreatureView: View {
                 mineralLights
 
                 frontLimbs
+
+                if showsFistBump {
+                    RockyFistBumpCue(active: gaitFrame, accent: moodAccent)
+                }
             }
             .frame(width: canvas.width, height: canvas.height)
             .scaleEffect(scale, anchor: .topLeading)
@@ -795,11 +791,19 @@ private struct RockyCreatureView: View {
 
     private var showsGraceHalo: Bool {
         switch animation {
-        case .happyBounce, .excited, .thumbsUp, .rollInBox:
+        case .happyBounce, .excited:
             return true
         default:
-            return mood == .happy
+            return false
         }
+    }
+
+    private var showsFistBump: Bool {
+        animation == .thumbsUp
+    }
+
+    private var showsWorkRig: Bool {
+        animation == .rollInBox || animation == .workInPlace || animation == .think
     }
 
     private var verticalMotion: CGFloat {
@@ -1006,6 +1010,131 @@ private struct GraceStar {
     let size: CGFloat
     let rotation: Double
     let liftsOnActive: Bool
+}
+
+private struct RockyFistBumpCue: View {
+    let active: Bool
+    let accent: Color
+
+    private var wrist: CGPoint {
+        CGPoint(x: active ? 136 : 130, y: active ? 29 : 37)
+    }
+
+    private var knuckle: CGPoint {
+        CGPoint(x: active ? 155 : 146, y: active ? 17 : 24)
+    }
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            RockyLine(
+                points: [CGPoint(x: 111, y: 57), CGPoint(x: 125, y: active ? 39 : 45), wrist, knuckle],
+                lineWidth: 10.4,
+                color: Color(red: 0.06, green: 0.035, blue: 0.018)
+            )
+            RockyLine(
+                points: [CGPoint(x: 111, y: 57), CGPoint(x: 125, y: active ? 39 : 45), wrist, knuckle],
+                lineWidth: 6.6,
+                color: Color(red: 0.74, green: 0.44, blue: 0.18)
+            )
+
+            ForEach(0..<3, id: \.self) { index in
+                RockyLine(
+                    points: [
+                        knuckle,
+                        CGPoint(
+                            x: knuckle.x + CGFloat(index - 1) * 6,
+                            y: knuckle.y - CGFloat(active ? 10 : 7)
+                        )
+                    ],
+                    lineWidth: 3.2,
+                    color: Color(red: 0.10, green: 0.055, blue: 0.025)
+                )
+            }
+
+            Circle()
+                .fill(accent.opacity(active ? 0.96 : 0.66))
+                .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 1.2))
+                .frame(width: 10, height: 10)
+                .position(knuckle)
+                .shadow(color: accent.opacity(active ? 0.7 : 0.25), radius: active ? 8 : 4)
+
+            ForEach(0..<2, id: \.self) { index in
+                Circle()
+                    .trim(from: 0.12, to: 0.68)
+                    .stroke(accent.opacity(0.45 - Double(index) * 0.12), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
+                    .frame(width: CGFloat(28 + index * 13), height: CGFloat(18 + index * 9))
+                    .rotationEffect(.degrees(active ? -18 : -32))
+                    .offset(x: active ? 137 : 128, y: active ? 4 : 12)
+            }
+        }
+        .frame(width: 180, height: 150)
+        .allowsHitTesting(false)
+    }
+}
+
+private struct RockyWorkRig: View {
+    let active: Bool
+    let accent: Color
+    let boxed: Bool
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            if boxed {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(Color(red: 0.30, green: 0.82, blue: 0.95).opacity(0.11))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 9, style: .continuous)
+                            .stroke(Color(red: 0.55, green: 0.96, blue: 1.0).opacity(0.62), lineWidth: 2.2)
+                    )
+                    .frame(width: 122, height: 66)
+                    .rotationEffect(.degrees(active ? -4 : 4))
+                    .offset(x: 29, y: 68)
+            }
+
+            RockyLine(
+                points: [
+                    CGPoint(x: 18, y: active ? 93 : 101),
+                    CGPoint(x: 47, y: active ? 85 : 92),
+                    CGPoint(x: 72, y: 84)
+                ],
+                lineWidth: 2.2,
+                color: Color(red: 0.54, green: 0.93, blue: 1.0).opacity(0.74)
+            )
+            RockyLine(
+                points: [
+                    CGPoint(x: 162, y: active ? 86 : 95),
+                    CGPoint(x: 134, y: active ? 82 : 89),
+                    CGPoint(x: 109, y: 87)
+                ],
+                lineWidth: 2.2,
+                color: Color(red: 0.54, green: 0.93, blue: 1.0).opacity(0.74)
+            )
+
+            ForEach(0..<3, id: \.self) { index in
+                Capsule()
+                    .fill(index == 1 ? accent.opacity(0.92) : Color(red: 0.54, green: 0.93, blue: 1.0).opacity(0.72))
+                    .frame(width: CGFloat(10 + index * 6), height: 2.4)
+                    .rotationEffect(.degrees(index == 1 ? -8 : 10))
+                    .offset(
+                        x: CGFloat(43 + index * 18),
+                        y: CGFloat(active ? 58 + index * 4 : 63 + index * 3)
+                    )
+            }
+
+            Circle()
+                .fill(accent.opacity(active ? 0.95 : 0.55))
+                .frame(width: 7, height: 7)
+                .position(x: active ? 72 : 68, y: active ? 84 : 88)
+                .shadow(color: accent.opacity(0.6), radius: 6)
+            Circle()
+                .fill(Color(red: 0.54, green: 0.93, blue: 1.0).opacity(active ? 0.92 : 0.52))
+                .frame(width: 6, height: 6)
+                .position(x: active ? 109 : 114, y: active ? 87 : 91)
+                .shadow(color: Color(red: 0.54, green: 0.93, blue: 1.0).opacity(0.55), radius: 5)
+        }
+        .frame(width: 180, height: 150)
+        .allowsHitTesting(false)
+    }
 }
 
 private struct StarShape: Shape {

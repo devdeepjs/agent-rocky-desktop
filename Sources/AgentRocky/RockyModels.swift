@@ -150,11 +150,11 @@ struct RockyBrainResponse: Codable, Sendable {
         switch animation {
         case .sleep:
             return .sleepy
-        case .think, .workInPlace:
+        case .think, .workInPlace, .rollInBox:
             return .thinking
         case .error:
             return .error
-        case .happyBounce, .excited, .thumbsUp, .rollInBox:
+        case .happyBounce, .excited, .thumbsUp:
             return .happy
         case .idle, .pulse, .walk, .wave, .play, .playBall, .lick, .purr:
             return .curious
