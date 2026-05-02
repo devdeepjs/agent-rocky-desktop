@@ -1016,10 +1016,6 @@ private struct RockyCreatureView: View {
                 mineralLights
 
                 frontLimbs
-
-                if showsFistBump {
-                    RockyFistBumpCue(active: gaitFrame, accent: moodAccent)
-                }
             }
             .frame(width: canvas.width, height: canvas.height)
             .scaleEffect(scale, anchor: .topLeading)
@@ -1061,10 +1057,6 @@ private struct RockyCreatureView: View {
         }
     }
 
-    private var showsFistBump: Bool {
-        animation == .thumbsUp
-    }
-
     private var showsWorkRig: Bool {
         animation == .rollInBox || animation == .workInPlace || animation == .think
     }
@@ -1101,17 +1093,17 @@ private struct RockyCreatureView: View {
     private var backLimbs: some View {
         Group {
             RockyLimb(
-                resting: [CGPoint(x: 68, y: 72), CGPoint(x: 46, y: 80), CGPoint(x: 27, y: 111)],
-                stepping: [CGPoint(x: 68, y: 72), CGPoint(x: 43, y: 76), CGPoint(x: 22, y: 104)],
+                resting: [CGPoint(x: 64, y: 78), CGPoint(x: 42, y: 91), CGPoint(x: 24, y: 125)],
+                stepping: [CGPoint(x: 64, y: 78), CGPoint(x: 39, y: 86), CGPoint(x: 19, y: 118)],
                 active: gaitFrame,
-                lineWidth: 8,
+                lineWidth: 8.4,
                 tint: Color(red: 0.46, green: 0.25, blue: 0.10)
             )
             RockyLimb(
-                resting: [CGPoint(x: 112, y: 72), CGPoint(x: 135, y: 81), CGPoint(x: 154, y: 112)],
-                stepping: [CGPoint(x: 112, y: 72), CGPoint(x: 137, y: 77), CGPoint(x: 159, y: 105)],
+                resting: [CGPoint(x: 116, y: 78), CGPoint(x: 139, y: 91), CGPoint(x: 157, y: 125)],
+                stepping: [CGPoint(x: 116, y: 78), CGPoint(x: 142, y: 86), CGPoint(x: 162, y: 118)],
                 active: !gaitFrame,
-                lineWidth: 8,
+                lineWidth: 8.4,
                 tint: Color(red: 0.46, green: 0.25, blue: 0.10)
             )
             RockyLimb(
@@ -1127,20 +1119,6 @@ private struct RockyCreatureView: View {
     private var frontLimbs: some View {
         Group {
             RockyLimb(
-                resting: [CGPoint(x: 65, y: 90), CGPoint(x: 45, y: 101), CGPoint(x: 33, y: 133)],
-                stepping: [CGPoint(x: 65, y: 90), CGPoint(x: 50, y: 103), CGPoint(x: 48, y: 135)],
-                active: !gaitFrame,
-                lineWidth: 8.5,
-                tint: Color(red: 0.62, green: 0.36, blue: 0.15)
-            )
-            RockyLimb(
-                resting: [CGPoint(x: 115, y: 90), CGPoint(x: 136, y: 102), CGPoint(x: 147, y: 133)],
-                stepping: [CGPoint(x: 115, y: 90), CGPoint(x: 131, y: 104), CGPoint(x: 132, y: 135)],
-                active: gaitFrame,
-                lineWidth: 8.5,
-                tint: Color(red: 0.62, green: 0.36, blue: 0.15)
-            )
-            RockyLimb(
                 resting: [CGPoint(x: 70, y: 57), CGPoint(x: 52, y: 40), CGPoint(x: 42, y: 19)],
                 stepping: [CGPoint(x: 70, y: 57), CGPoint(x: 49, y: 36), CGPoint(x: 38, y: 15)],
                 active: gaitFrame,
@@ -1149,14 +1127,30 @@ private struct RockyCreatureView: View {
                 tipColor: moodAccent
             )
             RockyLimb(
-                resting: [CGPoint(x: 110, y: 57), CGPoint(x: 129, y: 40), CGPoint(x: 139, y: 19)],
-                stepping: [CGPoint(x: 110, y: 57), CGPoint(x: 132, y: 36), CGPoint(x: 143, y: 15)],
+                resting: rightArmRestingPoints,
+                stepping: rightArmSteppingPoints,
                 active: !gaitFrame,
                 lineWidth: 7.2,
                 tint: Color(red: 0.72, green: 0.43, blue: 0.17),
                 tipColor: moodAccent
             )
         }
+    }
+
+    private var rightArmRestingPoints: [CGPoint] {
+        if animation == .thumbsUp {
+            return [CGPoint(x: 110, y: 57), CGPoint(x: 130, y: 37), CGPoint(x: 146, y: 24)]
+        }
+
+        return [CGPoint(x: 110, y: 57), CGPoint(x: 129, y: 40), CGPoint(x: 139, y: 19)]
+    }
+
+    private var rightArmSteppingPoints: [CGPoint] {
+        if animation == .thumbsUp {
+            return [CGPoint(x: 110, y: 57), CGPoint(x: 136, y: 29), CGPoint(x: 155, y: 17)]
+        }
+
+        return [CGPoint(x: 110, y: 57), CGPoint(x: 132, y: 36), CGPoint(x: 143, y: 15)]
     }
 
     private var facets: some View {
@@ -1273,66 +1267,6 @@ private struct GraceStar {
     let size: CGFloat
     let rotation: Double
     let liftsOnActive: Bool
-}
-
-private struct RockyFistBumpCue: View {
-    let active: Bool
-    let accent: Color
-
-    private var wrist: CGPoint {
-        CGPoint(x: active ? 136 : 130, y: active ? 29 : 37)
-    }
-
-    private var knuckle: CGPoint {
-        CGPoint(x: active ? 155 : 146, y: active ? 17 : 24)
-    }
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            RockyLine(
-                points: [CGPoint(x: 111, y: 57), CGPoint(x: 125, y: active ? 39 : 45), wrist, knuckle],
-                lineWidth: 10.4,
-                color: Color(red: 0.06, green: 0.035, blue: 0.018)
-            )
-            RockyLine(
-                points: [CGPoint(x: 111, y: 57), CGPoint(x: 125, y: active ? 39 : 45), wrist, knuckle],
-                lineWidth: 6.6,
-                color: Color(red: 0.74, green: 0.44, blue: 0.18)
-            )
-
-            ForEach(0..<3, id: \.self) { index in
-                RockyLine(
-                    points: [
-                        knuckle,
-                        CGPoint(
-                            x: knuckle.x + CGFloat(index - 1) * 6,
-                            y: knuckle.y - CGFloat(active ? 10 : 7)
-                        )
-                    ],
-                    lineWidth: 3.2,
-                    color: Color(red: 0.10, green: 0.055, blue: 0.025)
-                )
-            }
-
-            Circle()
-                .fill(accent.opacity(active ? 0.96 : 0.66))
-                .overlay(Circle().stroke(Color.black.opacity(0.35), lineWidth: 1.2))
-                .frame(width: 10, height: 10)
-                .position(knuckle)
-                .shadow(color: accent.opacity(active ? 0.7 : 0.25), radius: active ? 8 : 4)
-
-            ForEach(0..<2, id: \.self) { index in
-                Circle()
-                    .trim(from: 0.12, to: 0.68)
-                    .stroke(accent.opacity(0.45 - Double(index) * 0.12), style: StrokeStyle(lineWidth: 1.4, lineCap: .round))
-                    .frame(width: CGFloat(28 + index * 13), height: CGFloat(18 + index * 9))
-                    .rotationEffect(.degrees(active ? -18 : -32))
-                    .offset(x: active ? 137 : 128, y: active ? 4 : 12)
-            }
-        }
-        .frame(width: 180, height: 150)
-        .allowsHitTesting(false)
-    }
 }
 
 private struct RockyWorkRig: View {
