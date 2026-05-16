@@ -1,59 +1,80 @@
 # Agent Rocky Desktop
 
-Local macOS desktop companion app with configurable character profiles and bring-your-own-key model providers.
+Agent Rocky is a local macOS desktop companion app. It gives you a small floating character near the Dock, a hover terminal for quick chat, configurable companion profiles, and bring-your-own-key model provider support.
 
-## Status
+The app is built with Swift, SwiftUI, and AppKit. It runs locally, stores conversations on your Mac, and stores provider API keys in macOS Keychain.
 
-Working local macOS app. It builds a downloadable unsigned DMG under `dist/AgentRocky.dmg`. It is ready for source publishing and local DMG testing; Developer ID signing and notarization are still needed for a polished public binary release.
+## What Works
+
+- Floating transparent desktop companion.
+- Menu-bar show, hide, and quit.
+- Reopen behavior: launching the app again shows the companion if it was hidden.
+- Mini hover terminal and larger stage mode.
+- Multiple saved chats.
+- Three bundled profiles: Rocky, Orange Cat, and Little Box Guy.
+- Custom JSON profiles.
+- Normal, thinking, and idle companion states.
+- Occasional profile-owned idle actions.
+- Optional image/GIF assets per animation.
+- In-app preview buttons for normal, thinking, and idle states.
+- BYOK provider settings for Codex CLI, OpenAI, OpenAI-compatible APIs, DeepSeek, Gemini, and Ollama.
+- Unsigned local `.app` and `.dmg` packaging.
+
+## Current Distribution Status
+
+This repo is ready to publish as source and to build an unsigned local DMG.
+
+The generated DMG is not Developer ID signed or notarized yet. That means macOS may show Gatekeeper warnings if someone downloads it from the internet. For a polished public binary release, add signing and notarization.
 
 ## Requirements
 
-- macOS 14 or newer
-- Swift toolchain
-- Authenticated `codex` CLI on `PATH`, or an API key/local endpoint for another configured provider
+- macOS 14 or newer.
+- Swift toolchain.
+- One model backend:
+  - authenticated `codex` CLI on `PATH`, or
+  - a provider API key, or
+  - a local Ollama endpoint.
 
-## Downloadable App
-
-Build and verify the release artifacts:
+## Build The DMG
 
 ```bash
 scripts/build-release.sh
 ```
 
-That writes:
+This runs tests, builds the app, creates the DMG, checks the plist, verifies codesign, and verifies the DMG checksum.
 
-- `dist/Agent Rocky.app`
-- `dist/AgentRocky.dmg`
+Expected local artifacts:
 
-Open the DMG and drag `Agent Rocky.app` to Applications.
-
-For full usage, provider setup, and custom profile instructions, see `docs/how-to-use.md`.
-
-## Local Run
-
-```bash
-swift run
+```text
+dist/Agent Rocky.app
+dist/AgentRocky.dmg
 ```
 
-The app opens a transparent floating companion near the Dock. By default only the character is visible. Hover over it to open the tiny terminal, type, and press enter.
+`dist/` is ignored by Git.
 
-## Build The App Bundle Only
+## Install Locally
 
-```bash
-scripts/package-macos-app.sh
-```
+Open `dist/AgentRocky.dmg`, then drag `Agent Rocky.app` to Applications.
 
-That writes `dist/Agent Rocky.app`. To install it into `/Applications` when writable, or `~/Applications` otherwise:
+Or install from the helper script:
 
 ```bash
 scripts/package-macos-app.sh --install
 ```
 
-The app runs as a menu-bar utility. Use the red `x` button or `/hide` to hide the floating panel, then restore it from the menu-bar item without rebuilding.
+The helper installs to `/Applications` when writable, otherwise to `~/Applications`.
 
-## Commands
+## Run From Source
 
-Type these in the terminal:
+```bash
+swift run
+```
+
+The companion appears near the Dock. Hover over it to open the small terminal.
+
+## In-App Commands
+
+Type these into the terminal:
 
 ```text
 /open                open larger stage mode
@@ -63,60 +84,71 @@ Type these in the terminal:
 /chats               list recent chats
 /profiles            list bundled profiles
 /profile orange-cat  switch companion profile
-/mode dynamic        let the small companion move around the safe screen area
+/mode dynamic        let the companion move occasionally
 /animate purr        run a profile-safe animation
 ```
 
-Bundled profiles currently include `rocky`, `orange-cat`, and `cute-buddy`. Custom profile JSON files can be placed in `~/Library/Application Support/AgentRocky/profiles/`; see `docs/profile-schema.md`. Profiles can define normal, thinking, and idle actions, including optional image/GIF assets per animation.
+## Configure Providers
 
-## Brain And BYOK
+Open stage mode with `/open`, then click the gear button.
 
-Open stage mode and click the gear button to configure provider, model, base URL, API key, and the active agent prompt. The same panel has preview buttons for the current profile's normal, thinking, and idle states. Bundled providers are:
+You can configure:
 
-- Codex CLI
-- OpenAI
-- OpenAI-compatible
-- DeepSeek
-- Gemini
-- Ollama
+- provider
+- model
+- base URL where supported
+- API key
+- agent prompt
 
-Codex CLI is the default provider. The first message starts a persistent Codex session without a hardcoded model:
+Provider API keys are stored in macOS Keychain. Provider settings and conversations are stored under:
 
-```bash
-codex exec --skip-git-repo-check --sandbox read-only --color never --json -o /tmp/agent-rocky-response.json -
+```text
+~/Library/Application Support/AgentRocky/
 ```
 
-Later messages resume the saved session:
+## Profiles
 
-```bash
-codex exec resume --skip-git-repo-check --json -o /tmp/agent-rocky-response.json <session-id> -
+Bundled profiles:
+
+- `rocky`
+- `orange-cat`
+- `cute-buddy`
+
+Custom profiles live in:
+
+```text
+~/Library/Application Support/AgentRocky/profiles/
 ```
 
-API keys are stored in macOS Keychain per provider. Provider, model, base URL, prompt, terminal history, recent turns, and Codex session ids are saved under Application Support as `AgentRocky/`.
-
-If the selected provider fails, times out, or returns malformed JSON, the UI falls back to a canned local response instead of breaking.
+See `docs/profile-schema.md` for the JSON format. Profiles can define the prompt, visual style, allowed animations, normal/thinking/idle states, idle timing, and optional image/GIF assets.
 
 ## Privacy
 
-In Codex mode, messages go through the local `codex` CLI and follow that user's Codex configuration. In BYOK modes, messages are sent to the selected provider endpoint with that provider's Keychain-stored API key. Ollama uses the configured local endpoint. Conversation text and settings are stored under `~/Library/Application Support/AgentRocky/`.
+- Conversation history is stored locally in Application Support.
+- API keys are stored in macOS Keychain.
+- Codex CLI mode uses the user's local Codex configuration.
+- BYOK modes send messages to the selected provider endpoint.
+- Ollama mode uses the configured local Ollama endpoint.
 
-## Files
+## Repository Map
 
-- `DESIGN.md` - architecture and contract.
-- `PUBLIC_RELEASE_PLAN.md` - public release execution order.
-- `docs/how-to-use.md` - install, launch, provider setup, and profile usage.
-- `docs/profile-schema.md` - custom companion profile format.
-- `scripts/build-release.sh` - test, bundle, DMG, and verification flow.
-- `scripts/package-macos-app.sh` - local `.app` bundle builder.
-- `scripts/create-dmg.sh` - DMG builder.
 - `Sources/AgentRocky/App/` - AppKit app shell and floating panel.
-- `Sources/AgentRocky/Brain/BrainService.swift` - Codex CLI, OpenAI, compatible, DeepSeek, Gemini, and Ollama adapters.
-- `Sources/AgentRocky/Domain/BrainModels.swift` - provider, response, and chat models.
-- `Sources/AgentRocky/Profiles/BundledProfiles.swift` - shared profile data model and bundled profiles.
-- `Sources/AgentRocky/UI/` - SwiftUI terminal, stage, and renderers.
-- `Sources/AgentRocky/Persistence/` - saved chats, preferences, profiles, and Keychain secrets.
+- `Sources/AgentRocky/Brain/` - provider calls and response parsing.
+- `Sources/AgentRocky/Domain/` - shared provider, response, and chat models.
+- `Sources/AgentRocky/Persistence/` - conversations, preferences, custom profiles, and Keychain access.
+- `Sources/AgentRocky/Profiles/` - profile schema and bundled profiles.
+- `Sources/AgentRocky/UI/` - SwiftUI terminal, settings, stage, and renderers.
+- `scripts/` - app packaging, DMG creation, and release checks.
+- `docs/` - usage, profile schema, architecture, and release notes.
 
-## Verified Here
+## Useful Docs
+
+- `docs/how-to-use.md`
+- `docs/profile-schema.md`
+- `DESIGN.md`
+- `PUBLIC_RELEASE_PLAN.md`
+
+## Verification
 
 ```bash
 swift test
@@ -125,4 +157,4 @@ scripts/build-release.sh
 
 ## License
 
-MIT. Copyright (c) 2026 Devdeep.
+MIT. See `LICENSE`.
