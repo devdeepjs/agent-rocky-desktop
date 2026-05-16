@@ -1,12 +1,12 @@
 import Foundation
 
-struct RockyMemorySnapshot: Codable, Equatable {
+struct LegacyMemorySnapshot: Codable, Equatable {
     var sessionID: String?
     var terminalLines: [String]
     var history: [ChatTurn]
 }
 
-struct RockyConversation: Codable, Equatable, Identifiable, Sendable {
+struct CompanionConversation: Codable, Equatable, Identifiable, Sendable {
     var id: String
     var title: String
     var createdAt: Date
@@ -18,8 +18,8 @@ struct RockyConversation: Codable, Equatable, Identifiable, Sendable {
     var terminalLines: [String]
     var history: [ChatTurn]
 
-    var summary: RockyConversationSummary {
-        RockyConversationSummary(
+    var summary: ConversationSummary {
+        ConversationSummary(
             id: id,
             title: title,
             updatedAt: updatedAt,
@@ -27,8 +27,8 @@ struct RockyConversation: Codable, Equatable, Identifiable, Sendable {
         )
     }
 
-    static func fresh(profileID: String = "rocky", model: String = "", now: Date = Date()) -> RockyConversation {
-        RockyConversation(
+    static func fresh(profileID: String = "rocky", model: String = "", now: Date = Date()) -> CompanionConversation {
+        CompanionConversation(
             id: UUID().uuidString.lowercased(),
             title: "New chat",
             createdAt: now,
@@ -46,23 +46,27 @@ struct RockyConversation: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-struct RockyConversationSummary: Codable, Equatable, Identifiable, Sendable {
+struct ConversationSummary: Codable, Equatable, Identifiable, Sendable {
     var id: String
     var title: String
     var updatedAt: Date
     var profileID: String
 }
 
-struct RockyConversationState: Equatable {
-    var active: RockyConversation
-    var summaries: [RockyConversationSummary]
+struct ConversationState: Equatable {
+    var active: CompanionConversation
+    var summaries: [ConversationSummary]
 }
 
-private struct RockySettings: Codable {
+private struct StoredSettings: Codable {
     var activeConversationID: String?
+    var brainProvider: BrainProvider?
+    var model: String?
+    var baseURL: String?
+    var agentPrompt: String?
 }
 
-final class RockyMemoryStore {
+final class ConversationStore {
     private let rootURL: URL
     private let legacyFileURL: URL
     private let settingsURL: URL
@@ -86,26 +90,26 @@ final class RockyMemoryStore {
         createDirectories()
     }
 
-    func loadState() -> RockyConversationState {
+    func loadState() -> ConversationState {
         migrateLegacyMemoryIfNeeded()
 
         if let active = loadActiveConversation() {
-            return RockyConversationState(active: active, summaries: listSummaries())
+            return ConversationState(active: active, summaries: listSummaries())
         }
 
-        let conversation = RockyConversation.fresh()
+        let conversation = CompanionConversation.fresh()
         saveConversation(conversation, makeActive: true)
-        return RockyConversationState(active: conversation, summaries: listSummaries())
+        return ConversationState(active: conversation, summaries: listSummaries())
     }
 
-    func createConversation(profileID: String = "rocky", model: String = "") -> RockyConversationState {
-        var conversation = RockyConversation.fresh(profileID: profileID, model: model)
+    func createConversation(profileID: String = "rocky", model: String = "") -> ConversationState {
+        var conversation = CompanionConversation.fresh(profileID: profileID, model: model)
         conversation.title = "New chat"
         saveConversation(conversation, makeActive: true)
-        return RockyConversationState(active: conversation, summaries: listSummaries())
+        return ConversationState(active: conversation, summaries: listSummaries())
     }
 
-    func saveConversation(_ conversation: RockyConversation, makeActive: Bool = true) {
+    func saveConversation(_ conversation: CompanionConversation, makeActive: Bool = true) {
         createDirectories()
 
         guard let data = try? encoder.encode(conversation) else {
@@ -115,32 +119,57 @@ final class RockyMemoryStore {
         try? data.write(to: conversationURL(id: conversation.id), options: [.atomic])
 
         if makeActive {
-            saveSettings(RockySettings(activeConversationID: conversation.id))
+            var settings = loadSettings()
+            settings.activeConversationID = conversation.id
+            saveSettings(settings)
         }
     }
 
-    func selectConversation(id: String) -> RockyConversationState? {
+    func selectConversation(id: String) -> ConversationState? {
         guard let conversation = loadConversation(id: id) else {
             return nil
         }
 
-        saveSettings(RockySettings(activeConversationID: id))
-        return RockyConversationState(active: conversation, summaries: listSummaries())
+        var settings = loadSettings()
+        settings.activeConversationID = id
+        saveSettings(settings)
+        return ConversationState(active: conversation, summaries: listSummaries())
     }
 
-    func deleteConversation(id: String) -> RockyConversationState {
+    func deleteConversation(id: String) -> ConversationState {
         try? FileManager.default.removeItem(at: conversationURL(id: id))
 
         if let next = listSummaries().first,
            let conversation = loadConversation(id: next.id) {
-            saveSettings(RockySettings(activeConversationID: conversation.id))
-            return RockyConversationState(active: conversation, summaries: listSummaries())
+            var settings = loadSettings()
+            settings.activeConversationID = conversation.id
+            saveSettings(settings)
+            return ConversationState(active: conversation, summaries: listSummaries())
         }
 
         return createConversation()
     }
 
-    func listSummaries() -> [RockyConversationSummary] {
+    func loadPreferences() -> AppPreferences {
+        let settings = loadSettings()
+        return AppPreferences(
+            brainProvider: settings.brainProvider ?? .codexCLI,
+            model: settings.model ?? "",
+            baseURL: settings.baseURL ?? "",
+            agentPrompt: settings.agentPrompt ?? ""
+        )
+    }
+
+    func savePreferences(_ preferences: AppPreferences) {
+        var settings = loadSettings()
+        settings.brainProvider = preferences.brainProvider
+        settings.model = preferences.model
+        settings.baseURL = preferences.baseURL
+        settings.agentPrompt = preferences.agentPrompt
+        saveSettings(settings)
+    }
+
+    func listSummaries() -> [ConversationSummary] {
         let urls = (try? FileManager.default.contentsOfDirectory(
             at: conversationsURL,
             includingPropertiesForKeys: nil,
@@ -149,9 +178,9 @@ final class RockyMemoryStore {
 
         return urls
             .filter { $0.pathExtension == "json" }
-            .compactMap { url -> RockyConversationSummary? in
+            .compactMap { url -> ConversationSummary? in
                 guard let data = try? Data(contentsOf: url),
-                      let conversation = try? decoder.decode(RockyConversation.self, from: data) else {
+                      let conversation = try? decoder.decode(CompanionConversation.self, from: data) else {
                     return nil
                 }
 
@@ -162,7 +191,34 @@ final class RockyMemoryStore {
             }
     }
 
-    private func loadActiveConversation() -> RockyConversation? {
+    func loadCustomProfiles() -> [CompanionProfile] {
+        let urls = (try? FileManager.default.contentsOfDirectory(
+            at: profilesURL,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )) ?? []
+
+        return urls
+            .filter { $0.pathExtension == "json" }
+            .flatMap { url -> [CompanionProfile] in
+                guard let data = try? Data(contentsOf: url) else {
+                    return []
+                }
+
+                if let profiles = try? decoder.decode([CompanionProfile].self, from: data) {
+                    return profiles.filter(\.isValid)
+                }
+
+                if let profile = try? decoder.decode(CompanionProfile.self, from: data),
+                   profile.isValid {
+                    return [profile]
+                }
+
+                return []
+            }
+    }
+
+    private func loadActiveConversation() -> CompanionConversation? {
         if let activeID = loadSettings().activeConversationID,
            let conversation = loadConversation(id: activeID) {
             return conversation
@@ -175,23 +231,23 @@ final class RockyMemoryStore {
         return loadConversation(id: first.id)
     }
 
-    private func loadConversation(id: String) -> RockyConversation? {
+    private func loadConversation(id: String) -> CompanionConversation? {
         guard let data = try? Data(contentsOf: conversationURL(id: id)) else {
             return nil
         }
 
-        return try? decoder.decode(RockyConversation.self, from: data)
+        return try? decoder.decode(CompanionConversation.self, from: data)
     }
 
     private func migrateLegacyMemoryIfNeeded() {
         guard listSummaries().isEmpty,
               let data = try? Data(contentsOf: legacyFileURL),
-              let snapshot = try? decoder.decode(RockyMemorySnapshot.self, from: data) else {
+              let snapshot = try? decoder.decode(LegacyMemorySnapshot.self, from: data) else {
             return
         }
 
         let now = Date()
-        var conversation = RockyConversation(
+        var conversation = CompanionConversation(
             id: UUID().uuidString.lowercased(),
             title: Self.title(from: snapshot.history) ?? "Imported chat",
             createdAt: now,
@@ -224,16 +280,16 @@ final class RockyMemoryStore {
         return String(first.prefix(31)) + "..."
     }
 
-    private func loadSettings() -> RockySettings {
+    private func loadSettings() -> StoredSettings {
         guard let data = try? Data(contentsOf: settingsURL),
-              let settings = try? decoder.decode(RockySettings.self, from: data) else {
-            return RockySettings(activeConversationID: nil)
+              let settings = try? decoder.decode(StoredSettings.self, from: data) else {
+            return StoredSettings(activeConversationID: nil, brainProvider: nil, model: nil, baseURL: nil, agentPrompt: nil)
         }
 
         return settings
     }
 
-    private func saveSettings(_ settings: RockySettings) {
+    private func saveSettings(_ settings: StoredSettings) {
         guard let data = try? encoder.encode(settings) else {
             return
         }

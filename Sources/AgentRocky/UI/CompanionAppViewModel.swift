@@ -2,18 +2,22 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class RockyViewModel: ObservableObject {
+final class CompanionAppViewModel: ObservableObject {
     @Published var currentText = "ready"
-    @Published var mood: RockyMood = .curious
-    @Published var animation: RockyAnimation = .idle
+    @Published var mood: CompanionMood = .curious
+    @Published var animation: CompanionAnimation = .idle
     @Published var input = ""
     @Published var model = ""
+    @Published var brainProvider: BrainProvider = .codexCLI
+    @Published var providerBaseURL = ""
+    @Published var agentPrompt = ""
+    @Published var providerAPIKey = ""
     @Published var isThinking = false
     @Published var brainStatus = "Codex default"
     @Published var isUsingFallback = false
     @Published var isStageOpen = false
     @Published var activeConversationID = ""
-    @Published var conversations: [RockyConversationSummary] = []
+    @Published var conversations: [ConversationSummary] = []
     @Published var availableProfiles = StandardCompanionProfiles.all
     @Published var activeProfile = StandardCompanionProfiles.rocky
     @Published var activeMovementMode: CompanionMovementMode = .static
@@ -22,26 +26,47 @@ final class RockyViewModel: ObservableObject {
         "hover to talk"
     ]
 
-    private let brain = CodexBrain()
-    private let memoryStore = RockyMemoryStore()
+    private let brain = BrainService()
+    private let memoryStore = ConversationStore()
     private var history: [ChatTurn] = []
     private var codexSessionID: String?
     private var conversationCreatedAt = Date()
 
-    private let idleLines: [RockyBrainResponse] = [
-        RockyBrainResponse(text: "good good good", mood: .happy, animation: .bounce),
-        RockyBrainResponse(text: "question?", mood: .curious, animation: .wave),
-        RockyBrainResponse(text: "thinking small", mood: .thinking, animation: .pulse),
-        RockyBrainResponse(text: "sleep later", mood: .sleepy, animation: .idle)
+    private let idleLines: [BrainResponse] = [
+        BrainResponse(text: "good good good", mood: .happy, animation: .happyBounce),
+        BrainResponse(text: "question?", mood: .curious, animation: .wave),
+        BrainResponse(text: "thinking small", mood: .thinking, animation: .pulse),
+        BrainResponse(text: "sleep later", mood: .sleepy, animation: .idle)
     ]
 
     init() {
+        availableProfiles = Self.mergedProfiles(
+            bundled: StandardCompanionProfiles.all,
+            custom: memoryStore.loadCustomProfiles()
+        )
         load(memoryStore.loadState())
+        loadBrainSettings()
     }
 
     func poke() {
         guard !isThinking else { return }
         apply(idleLines.randomElement() ?? idleLines[0])
+    }
+
+    func previewNormalState() {
+        guard !isThinking else { return }
+        apply(BrainResponse(text: "normal", mood: .curious, animation: activeProfile.states.normal))
+    }
+
+    func previewThinkingState() {
+        guard !isThinking else { return }
+        apply(BrainResponse(text: "thinking", mood: .thinking, animation: activeProfile.states.thinking))
+    }
+
+    func previewIdleAction() {
+        guard !isThinking else { return }
+        let animation = activeProfile.states.idle.randomElement() ?? activeProfile.states.normal
+        apply(BrainResponse(text: animation.rawValue, mood: mood(for: animation), animation: animation))
     }
 
     func send() {
@@ -56,23 +81,37 @@ final class RockyViewModel: ObservableObject {
 
         isThinking = true
         appendTerminal("> \(message)")
-        appendTerminal("rocky: thinking...")
-        apply(RockyBrainResponse(text: "thinking...", mood: .thinking, animation: .pulse))
+        appendTerminal("\(profileTerminalName): thinking...")
+        apply(BrainResponse(text: "thinking...", mood: .thinking, animation: activeProfile.states.thinking))
 
-        let modelName = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        let modelName = normalizedModel
+        let baseURL = normalizedBaseURL
         let recentHistory = Array(history.suffix(6))
         let activeSessionID = codexSessionID
         let profile = activeProfile
+        let provider = brainProvider
+        let apiKey = providerAPIKey
+        let prompt = agentPrompt
 
         Task {
-            let result = await brain.respond(to: message, model: modelName, history: recentHistory, sessionID: activeSessionID, profile: profile)
+            let result = await brain.respond(
+                to: message,
+                provider: provider,
+                model: modelName,
+                apiKey: apiKey,
+                baseURL: baseURL,
+                history: recentHistory,
+                sessionID: activeSessionID,
+                profile: profile,
+                agentPrompt: prompt
+            )
             let response = result.response
                 .validated(for: profile)
                 .applyingMessageAnimationHint(for: message, profile: profile)
-            history.append(ChatTurn(user: message, rocky: response.text))
+            history.append(ChatTurn(user: message, assistant: response.text))
             codexSessionID = result.sessionID ?? codexSessionID
             brainStatus = result.detail
-            isUsingFallback = !result.usedCodex
+            isUsingFallback = !result.usedRemoteBrain
             replaceLastTerminalLine("\(profile.name.lowercased()): \(response.text)")
             apply(response)
             persist()
@@ -84,8 +123,8 @@ final class RockyViewModel: ObservableObject {
         load(memoryStore.createConversation(profileID: activeProfile.id, model: model))
         currentText = "ready"
         mood = .curious
-        animation = .idle
-        brainStatus = "New Codex session on next message"
+        animation = activeProfile.states.normal
+        brainStatus = brainProvider == .codexCLI ? "New Codex session on next message" : apiKeyStatus
         isUsingFallback = false
         input = ""
     }
@@ -99,7 +138,7 @@ final class RockyViewModel: ObservableObject {
         input = ""
         currentText = "ready"
         mood = .curious
-        animation = .idle
+        animation = activeProfile.states.normal
         isUsingFallback = false
     }
 
@@ -112,7 +151,7 @@ final class RockyViewModel: ObservableObject {
         input = ""
         currentText = "ready"
         mood = .curious
-        animation = .idle
+        animation = activeProfile.states.normal
         brainStatus = codexSessionID == nil ? "Codex default" : "Codex session saved"
     }
 
@@ -125,6 +164,9 @@ final class RockyViewModel: ObservableObject {
 
         activeProfile = profile
         activeMovementMode = profile.movementMode
+        if agentPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            agentPrompt = profile.systemPrompt
+        }
         if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            let defaultModel = profile.defaultModel {
             model = defaultModel
@@ -133,8 +175,74 @@ final class RockyViewModel: ObservableObject {
         persist()
     }
 
-    func quit() {
-        NSApp.terminate(nil)
+    var modelChoices: [String] {
+        brainProvider.modelChoices
+    }
+
+    var providerLabel: String {
+        brainProvider.displayName
+    }
+
+    var apiKeyStatus: String {
+        if !brainProvider.requiresAPIKey {
+            return "\(brainProvider.displayName) uses local auth"
+        }
+
+        return providerAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "No \(brainProvider.displayName) key saved"
+            : "\(brainProvider.displayName) key saved in Keychain"
+    }
+
+    func switchProvider(_ provider: BrainProvider) {
+        guard brainProvider != provider else { return }
+        brainProvider = provider
+        providerAPIKey = KeychainSecretStore.readAPIKey(for: provider)
+
+        if model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ||
+            model.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "default" {
+            model = provider.defaultModel
+        }
+
+        if provider.supportsBaseURL,
+           providerBaseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            providerBaseURL = provider.defaultBaseURL
+        }
+
+        brainStatus = provider == .codexCLI ? "Codex CLI" : apiKeyStatus
+        saveBrainSettings(appendLine: false)
+    }
+
+    func selectModel(_ selectedModel: String) {
+        model = selectedModel
+        saveBrainSettings(appendLine: false)
+    }
+
+    func resetAgentPrompt() {
+        agentPrompt = activeProfile.systemPrompt
+        saveBrainSettings()
+    }
+
+    func saveBrainSettings(appendLine: Bool = true) {
+        if brainProvider.requiresAPIKey {
+            KeychainSecretStore.saveAPIKey(providerAPIKey, for: brainProvider)
+        }
+
+        memoryStore.savePreferences(AppPreferences(
+            brainProvider: brainProvider,
+            model: model,
+            baseURL: providerBaseURL,
+            agentPrompt: agentPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? activeProfile.systemPrompt : agentPrompt
+        ))
+
+        brainStatus = brainProvider == .codexCLI ? "Codex CLI settings saved" : apiKeyStatus
+        if appendLine {
+            appendTerminal("system: brain settings saved")
+            persist()
+        }
+    }
+
+    func hidePanel() {
+        NSApp.windows.first(where: { $0.title == "Agent Rocky" })?.orderOut(nil)
     }
 
     func openStage() {
@@ -156,11 +264,17 @@ final class RockyViewModel: ObservableObject {
             return
         }
 
-        let behavior = activeProfile.idleBehaviors.randomElement() ?? .watching
-        apply(response(for: behavior))
+        previewIdleAction()
     }
 
-    private func apply(_ response: RockyBrainResponse) {
+    func nextIdleDelayMilliseconds() -> Int {
+        let cooldown = max(3, activeProfile.states.idleCooldownSeconds)
+        let jitter = max(0, activeProfile.states.idleJitterSeconds)
+        let next = cooldown + Double.random(in: 0...jitter)
+        return max(3_000, Int(next * 1_000))
+    }
+
+    private func apply(_ response: BrainResponse) {
         let cleaned = response.cleaned
         withAnimation(.spring(response: 0.35, dampingFraction: 0.74)) {
             currentText = cleaned.text
@@ -263,6 +377,13 @@ final class RockyViewModel: ObservableObject {
             runAnimationCommand(parts[1])
             return true
 
+        case "/hide", "/minimize":
+            appendTerminal("> \(message)")
+            appendTerminal("system: hidden. use menu bar Agent Rocky to show")
+            persist()
+            hidePanel()
+            return true
+
         case "/delete":
             deleteActiveChat()
             appendTerminal("system: deleted active chat")
@@ -271,7 +392,7 @@ final class RockyViewModel: ObservableObject {
 
         case "/help":
             appendTerminal("> \(message)")
-            appendTerminal("system: /open /mini /new /chats /delete /profiles /profile <id> /mode static|dynamic /animate <name>")
+            appendTerminal("system: /open /mini /hide /new /chats /delete /profiles /profile <id> /mode static|dynamic /animate <name>")
             persist()
             return true
 
@@ -284,7 +405,7 @@ final class RockyViewModel: ObservableObject {
     }
 
     private func persist() {
-        var conversation = RockyConversation(
+        var conversation = CompanionConversation(
             id: activeConversationID.isEmpty ? UUID().uuidString.lowercased() : activeConversationID,
             title: titleForCurrentConversation(),
             createdAt: conversationCreatedAt,
@@ -301,18 +422,60 @@ final class RockyViewModel: ObservableObject {
         conversations = memoryStore.listSummaries()
     }
 
-    private func load(_ state: RockyConversationState) {
+    private func load(_ state: ConversationState) {
         let conversation = state.active
         activeConversationID = conversation.id
         conversations = state.summaries
         codexSessionID = conversation.codexSessionID
-        activeProfile = StandardCompanionProfiles.profile(id: conversation.profileID) ?? StandardCompanionProfiles.rocky
+        activeProfile = availableProfiles.first(where: { $0.id == conversation.profileID })
+            ?? StandardCompanionProfiles.profile(id: conversation.profileID)
+            ?? StandardCompanionProfiles.rocky
         activeMovementMode = conversation.movementMode ?? activeProfile.movementMode
         conversationCreatedAt = conversation.createdAt
         model = conversation.model
         history = conversation.history
         terminalLines = conversation.terminalLines.isEmpty ? ["agent rocky v0.3", "hover to talk"] : conversation.terminalLines
-        brainStatus = conversation.codexSessionID == nil ? "Codex default" : "Codex session saved"
+        brainStatus = conversation.codexSessionID == nil ? providerLabel : "Codex session saved"
+    }
+
+    private var normalizedModel: String {
+        let trimmed = model.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty || trimmed.lowercased() == "default" {
+            return brainProvider.defaultModel
+        }
+
+        return trimmed
+    }
+
+    private var normalizedBaseURL: String {
+        let trimmed = providerBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return brainProvider.defaultBaseURL
+        }
+
+        return trimmed
+    }
+
+    private var profileTerminalName: String {
+        activeProfile.name.lowercased()
+    }
+
+    private func loadBrainSettings() {
+        let preferences = memoryStore.loadPreferences()
+        brainProvider = preferences.brainProvider
+        providerBaseURL = preferences.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? brainProvider.defaultBaseURL
+            : preferences.baseURL
+
+        let preferredModel = preferences.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !preferredModel.isEmpty || model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            model = preferredModel
+        }
+
+        let prompt = preferences.agentPrompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        agentPrompt = prompt.isEmpty ? activeProfile.systemPrompt : preferences.agentPrompt
+        providerAPIKey = KeychainSecretStore.readAPIKey(for: brainProvider)
+        brainStatus = brainProvider == .codexCLI ? "Codex CLI" : apiKeyStatus
     }
 
     private func titleForCurrentConversation() -> String {
@@ -356,32 +519,32 @@ final class RockyViewModel: ObservableObject {
             appendTerminal("system: animate \(selected.rawValue)")
         }
 
-        apply(RockyBrainResponse(
+        apply(BrainResponse(
             text: selected.rawValue,
             mood: mood(for: selected),
-            animation: RockyAnimation(companion: selected)
+            animation: selected
         ))
         persist()
     }
 
-    private func response(for behavior: CompanionIdleBehavior) -> RockyBrainResponse {
+    private func response(for behavior: CompanionIdleBehavior) -> BrainResponse {
         switch behavior {
         case .watching:
-            return RockyBrainResponse(text: "watching", mood: .curious, animation: .idle)
+            return BrainResponse(text: "watching", mood: .curious, animation: .idle)
         case .sleeping:
-            return RockyBrainResponse(text: "sleeping", mood: .sleepy, animation: .sleep)
+            return BrainResponse(text: "sleeping", mood: .sleepy, animation: .sleep)
         case .working:
-            return RockyBrainResponse(text: "working", mood: .thinking, animation: .workInPlace)
+            return BrainResponse(text: "working", mood: .thinking, animation: .workInPlace)
         case .lookingAround:
-            return RockyBrainResponse(text: "looking", mood: .curious, animation: .wave)
+            return BrainResponse(text: "looking", mood: .curious, animation: .wave)
         case .licking:
-            return RockyBrainResponse(text: "lick", mood: .happy, animation: .lick)
+            return BrainResponse(text: "lick", mood: .happy, animation: .lick)
         case .playing:
-            return RockyBrainResponse(text: "play", mood: .happy, animation: .play)
+            return BrainResponse(text: "play", mood: .happy, animation: .play)
         }
     }
 
-    private func mood(for animation: CompanionAnimation) -> RockyMood {
+    private func mood(for animation: CompanionAnimation) -> CompanionMood {
         switch animation {
         case .sleep:
             return .sleepy
@@ -389,12 +552,29 @@ final class RockyViewModel: ObservableObject {
             return .thinking
         case .error:
             return .error
-        case .walk, .wave, .play, .playBall, .lick, .purr:
+        case .shake, .walk, .wave, .play, .playBall, .lick, .purr:
             return .curious
-        case .happyBounce, .excited, .thumbsUp:
+        case .bounce, .happyBounce, .excited, .thumbsUp:
             return .happy
         case .idle, .pulse:
             return .curious
         }
+    }
+
+    private static func mergedProfiles(
+        bundled: [CompanionProfile],
+        custom: [CompanionProfile]
+    ) -> [CompanionProfile] {
+        var byID: [String: CompanionProfile] = [:]
+        var order: [String] = []
+
+        for profile in bundled + custom {
+            if byID[profile.id] == nil {
+                order.append(profile.id)
+            }
+            byID[profile.id] = profile
+        }
+
+        return order.compactMap { byID[$0] }
     }
 }

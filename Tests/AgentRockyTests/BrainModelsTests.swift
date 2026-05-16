@@ -1,9 +1,9 @@
 import XCTest
 @testable import AgentRocky
 
-final class RockyModelsTests: XCTestCase {
+final class BrainModelsTests: XCTestCase {
     func testCleanedReplacesBlankText() {
-        let response = RockyBrainResponse(text: "   ", mood: .curious, animation: .idle)
+        let response = BrainResponse(text: "   ", mood: .curious, animation: .idle)
 
         XCTAssertEqual(response.cleaned.text, "Thinking empty. Try again question.")
         XCTAssertEqual(response.cleaned.mood, .curious)
@@ -11,7 +11,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testCleanedKeepsLongText() {
-        let response = RockyBrainResponse(text: String(repeating: "a", count: 5_000), mood: .happy, animation: .wave)
+        let response = BrainResponse(text: String(repeating: "a", count: 5_000), mood: .happy, animation: .wave)
 
         XCTAssertEqual(response.cleaned.text.count, 5_000)
         XCTAssertFalse(response.cleaned.text.hasSuffix("..."))
@@ -20,7 +20,7 @@ final class RockyModelsTests: XCTestCase {
     func testBrainResponseDecodesExpectedContract() throws {
         let data = Data(#"{"text":"good good good","mood":"happy","animation":"bounce"}"#.utf8)
 
-        let response = try JSONDecoder().decode(RockyBrainResponse.self, from: data)
+        let response = try JSONDecoder().decode(BrainResponse.self, from: data)
 
         XCTAssertEqual(response.text, "good good good")
         XCTAssertEqual(response.mood, .happy)
@@ -28,7 +28,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testValidatedResponseKeepsAllowedProfileAnimation() {
-        let response = RockyBrainResponse(text: "purr purr", mood: .happy, animation: .purr)
+        let response = BrainResponse(text: "purr purr", mood: .happy, animation: .purr)
 
         let validated = response.validated(for: StandardCompanionProfiles.orangeCat)
 
@@ -36,7 +36,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testValidatedResponseFallsBackForDisallowedProfileAnimation() {
-        let response = RockyBrainResponse(text: "box", mood: .happy, animation: .rollInBox)
+        let response = BrainResponse(text: "box", mood: .happy, animation: .rollInBox)
 
         let validated = response.validated(for: StandardCompanionProfiles.orangeCat)
 
@@ -44,7 +44,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testMessageHintUsesThumbsUpForLuck() {
-        let hint = RockyBrainResponse.messageAnimationHint(
+        let hint = BrainResponse.messageAnimationHint(
             for: "Going to office, wish me luck",
             profile: StandardCompanionProfiles.rocky
         )
@@ -53,7 +53,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testMessageHintUsesExcitedForGoodNews() {
-        let hint = RockyBrainResponse.messageAnimationHint(
+        let hint = BrainResponse.messageAnimationHint(
             for: "Good news mate, we shipped it",
             profile: StandardCompanionProfiles.rocky
         )
@@ -62,7 +62,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testMessageHintUsesWorkAnimationForTasks() {
-        let hint = RockyBrainResponse.messageAnimationHint(
+        let hint = BrainResponse.messageAnimationHint(
             for: "Can you implement this task",
             profile: StandardCompanionProfiles.rocky
         )
@@ -71,7 +71,7 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testApplyingMessageHintMarksTaskAsThinking() {
-        let response = RockyBrainResponse(text: "working", mood: .happy, animation: .idle)
+        let response = BrainResponse(text: "working", mood: .happy, animation: .idle)
 
         let hinted = response.applyingMessageAnimationHint(
             for: "Can you implement this task",
@@ -83,11 +83,23 @@ final class RockyModelsTests: XCTestCase {
     }
 
     func testMessageHintFallsBackToAllowedProfileAnimations() {
-        let hint = RockyBrainResponse.messageAnimationHint(
+        let hint = BrainResponse.messageAnimationHint(
             for: "Good news mate, we shipped it",
             profile: StandardCompanionProfiles.orangeCat
         )
 
         XCTAssertEqual(hint, .excited)
+    }
+
+    func testOpenAIProviderHasDefaultModelChoice() {
+        XCTAssertEqual(BrainProvider.openAI.defaultModel, "gpt-5.4-mini")
+        XCTAssertTrue(BrainProvider.openAI.modelChoices.contains("gpt-5.5"))
+        XCTAssertTrue(BrainProvider.openAI.modelChoices.contains("gpt-5.4-mini"))
+    }
+
+    func testDeepSeekUsesOfficialBaseURLAndCurrentChoices() {
+        XCTAssertEqual(BrainProvider.deepSeek.defaultBaseURL, "https://api.deepseek.com")
+        XCTAssertEqual(BrainProvider.deepSeek.defaultModel, "deepseek-v4-flash")
+        XCTAssertTrue(BrainProvider.deepSeek.modelChoices.contains("deepseek-v4-pro"))
     }
 }

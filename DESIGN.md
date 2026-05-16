@@ -2,42 +2,47 @@
 
 ## Goal
 
-Build a small macOS desktop buddy inspired by the reel:
+Build a small macOS desktop companion app that is configurable by profile and provider. Rocky is a bundled profile. Codex CLI is a bundled provider. Neither one is the core architecture.
+
+The app should provide:
 
 - A transparent floating desktop character near the Dock.
-- Small animated creature with a faceted, rocky alien look.
-- No always-visible chat box, speech bubble, or title label.
-- A tiny terminal opens only on hover/focus.
-- The transparent panel is resizable so the terminal size can change.
-- A brain powered by the local `codex` CLI, not an OpenAI API key.
-- A safe fallback mode with canned lines when Codex is unavailable.
-
-This is a local prototype, not an App Store architecture.
+- A tiny terminal that appears only on hover or in stage mode.
+- Menu-bar show/hide/quit behavior so the app can stay running.
+- In-app provider, model, base URL, API key, and prompt configuration.
+- A downloadable DMG for local installation.
+- A profile model that can support Rocky, a cat, a little box buddy, or any later custom companion.
 
 ## Shape
 
 ```text
 SwiftUI macOS app
   AppKit floating NSPanel
-    RockyRootView
+    RootView
       transparent desktop overlay
       custom animated character
       hover terminal
-  CodexBrain
-    starts one persistent codex exec session
-    resumes that session for later messages
-    asks for JSON only
-    parses text/mood/animation
-    falls back to canned response
-  RockyMemoryStore
+  BrainService
+    Codex CLI provider
+    OpenAI Responses provider
+    OpenAI-compatible chat-completions provider
+    DeepSeek provider
+    Gemini provider
+    Ollama provider
+    JSON response parser and local fallback
+  ConversationStore
     saves terminal history
     saves recent turns
     saves active Codex session id
+    saves provider/model/baseURL/prompt preferences
+    loads custom JSON profiles
+  KeychainSecretStore
+    stores provider API keys by provider id
 ```
 
 ## Brain Contract
 
-The UI asks the brain for one structured response:
+The UI asks the selected provider for one structured response:
 
 ```json
 {
@@ -47,54 +52,47 @@ The UI asks the brain for one structured response:
 }
 ```
 
-The app will send Codex a tight prompt:
+The app validates the animation against the active profile before rendering. Bad or missing JSON falls back to a local response so the UI does not break.
 
-- stay in tiny desktop buddy character
-- short answer only
-- return JSON only
-- no shell commands or file edits
+## Profile Contract
 
-The command shape is:
+Profiles carry the behavior and visual contract:
 
-```bash
-codex exec --skip-git-repo-check --sandbox read-only --color never --json -o /tmp/agent-rocky-response.json -
-```
+- `id`
+- `name`
+- `kind`
+- `systemPrompt`
+- `defaultModel`
+- `visualStyle`
+- `movementMode`
+- `defaultAnimation`
+- `allowedAnimations`
+- `states.normal`
+- `states.thinking`
+- `states.idle`
+- `states.idleCooldownSeconds`
+- `states.idleJitterSeconds`
+- `states.animationAssets`
+- `idleBehaviors`
+- `accentColorHex`
 
-The app does not hardcode a model by default. It lets Codex use the user's configured model. A small optional override field exists for model names that are actually available locally.
+The bundled profiles are `rocky`, `orange-cat`, and `cute-buddy`. Custom profile files can be placed under `~/Library/Application Support/AgentRocky/profiles/`. Image and GIF assets can be attached per animation; the SwiftUI renderer remains the fallback when an asset is missing.
 
-After a session id is known, the command shape becomes:
+## Provider Contract
 
-```bash
-codex exec resume --skip-git-repo-check --json -o /tmp/agent-rocky-response.json <session-id> -
-```
+The bundled provider ids are:
 
-## Visual Decode
+- `codex-cli`
+- `openai`
+- `openai-compatible`
+- `deepseek`
+- `gemini`
+- `ollama`
 
-The reel composition is not a normal app window. It looks like:
+Codex CLI uses the user's local Codex login and can resume a saved session id. BYOK providers use per-provider Keychain secrets. Ollama uses the configured local base URL and does not require a key.
 
-- space/Earth desktop wallpaper stays visible
-- a small Rocky-like desktop companion sits above the Dock
-- any active app window is behind the companion
-- the companion feels like it belongs on the desktop, not inside a rounded card
+## Release Contract
 
-This implementation keeps the panel borderless and transparent. The visible default is just the small animated Rocky. The terminal is hidden until hover so the desktop does not look like a chat app.
+`scripts/build-release.sh` is the release smoke path. It runs tests, builds `dist/Agent Rocky.app`, creates `dist/AgentRocky.dmg`, lints the plist, verifies codesign, and verifies the DMG.
 
-The bottom-right grip resizes the transparent panel by updating the AppKit window frame directly. That is necessary because a borderless panel does not expose normal macOS resize chrome.
-
-## Personality
-
-Rocky treats Devdeep as his Grace: human, engineer, and friend. The prompt asks for short, warm, slightly odd English with practical help first. Rocky can say things like `good good good`, `question?`, and `we solve`, but not so often that it becomes noise.
-
-## Why Direct CLI First
-
-Direct `codex exec` is the smallest working path because it reuses the user's existing Codex login and model access. The app now stores the session id so normal chat does not create a fresh Codex thread every message. The experimental Codex app server and exec server can be explored later if the prototype needs streaming or lower latency.
-
-## Deferred
-
-- Voice input.
-- macOS text-to-speech.
-- App icon and packaged `.app` bundle.
-- Conversation picker for old chats.
-- Profile configuration.
-- Animation registry.
-- Test suite.
+The current DMG is unsigned. Signed and notarized distribution is a later release task.

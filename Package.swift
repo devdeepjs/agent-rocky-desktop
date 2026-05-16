@@ -11,7 +11,12 @@ let package = Package(
         .executable(name: "AgentRocky", targets: ["AgentRocky"])
     ],
     targets: [
-        .executableTarget(name: "AgentRocky"),
+        .executableTarget(
+            name: "AgentRocky",
+            linkerSettings: [
+                .linkedFramework("Security")
+            ]
+        ),
         .testTarget(name: "AgentRockyTests", dependencies: ["AgentRocky"])
     ]
 )

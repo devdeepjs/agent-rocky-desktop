@@ -1,25 +1,25 @@
 import AppKit
 import SwiftUI
 
-final class RockyFloatingPanel: NSPanel {
+final class CompanionFloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 }
 
 @MainActor
-final class RockyPanelController {
+final class FloatingPanelController {
     private let panel: NSPanel
-    private let viewModel: RockyViewModel
+    private let viewModel: CompanionAppViewModel
 
     init() {
-        viewModel = RockyViewModel()
+        viewModel = CompanionAppViewModel()
 
-        let rootView = RockyRootView(viewModel: viewModel)
+        let rootView = RootView(viewModel: viewModel)
         let hostingController = NSHostingController(rootView: rootView)
-        let initialSize = NSSize(width: 360, height: 390)
+        let initialSize = NSSize(width: 330, height: 320)
         hostingController.view.frame = NSRect(origin: .zero, size: initialSize)
 
-        panel = RockyFloatingPanel(
+        panel = CompanionFloatingPanel(
             contentRect: NSRect(origin: .zero, size: initialSize),
             styleMask: [.borderless, .fullSizeContentView, .resizable, .nonactivatingPanel],
             backing: .buffered,
@@ -36,7 +36,7 @@ final class RockyPanelController {
         panel.hidesOnDeactivate = false
         panel.isReleasedWhenClosed = false
         panel.level = .statusBar
-        panel.minSize = NSSize(width: 240, height: 250)
+        panel.minSize = NSSize(width: 220, height: 220)
         panel.maxSize = NSSize(width: 1100, height: 900)
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
     }
@@ -45,6 +45,18 @@ final class RockyPanelController {
         positionNearDock()
         panel.orderFrontRegardless()
         logLaunchState()
+    }
+
+    func hide() {
+        panel.orderOut(nil)
+    }
+
+    func toggle() {
+        if panel.isVisible {
+            hide()
+        } else {
+            show()
+        }
     }
 
     private func positionNearDock() {

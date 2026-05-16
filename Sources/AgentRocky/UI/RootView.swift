@@ -1,8 +1,8 @@
 import AppKit
 import SwiftUI
 
-struct RockyRootView: View {
-    @ObservedObject var viewModel: RockyViewModel
+struct RootView: View {
+    @ObservedObject var viewModel: CompanionAppViewModel
     @State private var isHovering = false
     @State private var isMiniTerminalDismissed = false
 
@@ -17,36 +17,49 @@ struct RockyRootView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             if terminalVisible {
-                RockyTerminal(
+                TerminalView(
                     input: $viewModel.input,
                     model: $viewModel.model,
+                    brainProvider: $viewModel.brainProvider,
+                    providerBaseURL: $viewModel.providerBaseURL,
+                    agentPrompt: $viewModel.agentPrompt,
+                    providerAPIKey: $viewModel.providerAPIKey,
                     lines: viewModel.terminalLines,
                     isThinking: viewModel.isThinking,
                     isUsingFallback: viewModel.isUsingFallback,
                     brainStatus: viewModel.brainStatus,
+                    apiKeyStatus: viewModel.apiKeyStatus,
                     isStageOpen: viewModel.isStageOpen,
                     activeProfile: viewModel.activeProfile,
                     availableProfiles: viewModel.availableProfiles,
+                    modelChoices: viewModel.modelChoices,
                     conversations: viewModel.conversations,
                     activeConversationID: viewModel.activeConversationID,
                     send: viewModel.send,
                     newChat: viewModel.newChat,
                     openStage: viewModel.openStage,
                     closeStage: viewModel.closeStage,
+                    switchProvider: viewModel.switchProvider,
+                    selectModel: viewModel.selectModel,
                     switchProfile: viewModel.switchProfile,
+                    saveBrainSettings: { viewModel.saveBrainSettings() },
+                    resetAgentPrompt: viewModel.resetAgentPrompt,
+                    previewNormalState: viewModel.previewNormalState,
+                    previewThinkingState: viewModel.previewThinkingState,
+                    previewIdleAction: viewModel.previewIdleAction,
                     selectChat: viewModel.selectChat,
                     deleteChat: viewModel.deleteActiveChat,
-                    quit: viewModel.quit
+                    hide: viewModel.hidePanel
                 )
                 .transition(.asymmetric(
                     insertion: .move(edge: .top).combined(with: .opacity),
                     removal: .opacity
                 ))
-                .padding(.bottom, viewModel.isStageOpen ? 126 : 118)
+                .padding(.bottom, viewModel.isStageOpen ? 108 : 94)
             }
 
             CompanionCreatureView(profile: viewModel.activeProfile, mood: viewModel.mood, animation: viewModel.animation, isAwake: terminalVisible)
-                .frame(width: isLargeWindow ? 220 : 156, height: isLargeWindow ? 176 : 132)
+                .frame(width: isLargeWindow ? 190 : 130, height: isLargeWindow ? 152 : 108)
                 .contentShape(Rectangle())
                 .onTapGesture {
                     if terminalVisible && !viewModel.isStageOpen && !viewModel.isThinking && viewModel.input.isEmpty {
@@ -68,10 +81,10 @@ struct RockyRootView: View {
         .padding(.vertical, 10)
         .frame(
             minWidth: viewModel.isStageOpen ? 560 : 240,
-            idealWidth: viewModel.isStageOpen ? 760 : 360,
+            idealWidth: viewModel.isStageOpen ? 760 : 330,
             maxWidth: viewModel.isStageOpen ? 940 : 620,
-            minHeight: viewModel.isStageOpen ? 500 : 250,
-            idealHeight: viewModel.isStageOpen ? 660 : 390,
+            minHeight: viewModel.isStageOpen ? 500 : 220,
+            idealHeight: viewModel.isStageOpen ? 660 : 320,
             maxHeight: viewModel.isStageOpen ? 820 : 720
         )
         .background(Color.clear)
@@ -89,7 +102,7 @@ struct RockyRootView: View {
         }
         .task(id: "\(viewModel.activeConversationID)-\(viewModel.activeProfile.id)") {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(14))
+                try? await Task.sleep(for: .milliseconds(viewModel.nextIdleDelayMilliseconds()))
                 viewModel.performIdleBehavior()
             }
         }
@@ -110,13 +123,13 @@ struct RockyRootView: View {
 
         let screenFrame = window.screen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
         guard screenFrame.width > 1, screenFrame.height > 1 else {
-            window.setContentSize(isStageOpen ? NSSize(width: 760, height: 660) : NSSize(width: 360, height: 390))
+            window.setContentSize(isStageOpen ? NSSize(width: 760, height: 660) : NSSize(width: 330, height: 320))
             return
         }
 
         let size = isStageOpen
             ? NSSize(width: min(760, screenFrame.width * 0.72), height: min(660, screenFrame.height * 0.72))
-            : NSSize(width: 360, height: 390)
+            : NSSize(width: 330, height: 320)
         let origin = isStageOpen
             ? NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.midY - size.height / 2)
             : NSPoint(x: screenFrame.midX - size.width / 2, y: screenFrame.minY + 18)
@@ -154,28 +167,42 @@ struct RockyRootView: View {
     }
 }
 
-private struct RockyTerminal: View {
+private struct TerminalView: View {
     @Binding var input: String
     @Binding var model: String
+    @Binding var brainProvider: BrainProvider
+    @Binding var providerBaseURL: String
+    @Binding var agentPrompt: String
+    @Binding var providerAPIKey: String
     let lines: [String]
     let isThinking: Bool
     let isUsingFallback: Bool
     let brainStatus: String
+    let apiKeyStatus: String
     let isStageOpen: Bool
     let activeProfile: CompanionProfile
     let availableProfiles: [CompanionProfile]
-    let conversations: [RockyConversationSummary]
+    let modelChoices: [String]
+    let conversations: [ConversationSummary]
     let activeConversationID: String
     let send: () -> Void
     let newChat: () -> Void
     let openStage: () -> Void
     let closeStage: () -> Void
+    let switchProvider: (BrainProvider) -> Void
+    let selectModel: (String) -> Void
     let switchProfile: (String) -> Void
+    let saveBrainSettings: () -> Void
+    let resetAgentPrompt: () -> Void
+    let previewNormalState: () -> Void
+    let previewThinkingState: () -> Void
+    let previewIdleAction: () -> Void
     let selectChat: (String) -> Void
     let deleteChat: () -> Void
-    let quit: () -> Void
+    let hide: () -> Void
 
     @FocusState private var inputFocused: Bool
+    @State private var showSettings = false
 
     private var terminalTitle: String {
         activeProfile.id == "rocky" ? "rocky.term" : "\(activeProfile.id).term"
@@ -184,6 +211,10 @@ private struct RockyTerminal: View {
     var body: some View {
         VStack(spacing: 0) {
             titleBar
+
+            if isStageOpen && showSettings {
+                settingsPanel
+            }
 
             ScrollViewReader { proxy in
                 ScrollView {
@@ -283,11 +314,23 @@ private struct RockyTerminal: View {
             Spacer(minLength: 4)
 
             if isStageOpen {
-                TextField("default", text: $model)
-                    .textFieldStyle(.plain)
-                    .foregroundStyle(.white.opacity(0.72))
-                    .frame(width: 78)
-                    .help("Model override. Leave blank for Codex default.")
+                Text(brainProvider.displayName)
+                    .foregroundStyle(Color(red: 0.78, green: 0.97, blue: 1.0).opacity(0.82))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+                    .frame(width: 94, alignment: .trailing)
+
+                Button {
+                    withAnimation(.spring(response: 0.22, dampingFraction: 0.86)) {
+                        showSettings.toggle()
+                    }
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 10, weight: .black))
+                        .frame(width: 24, height: 20)
+                }
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.76, green: 0.84, blue: 1.0)))
+                .help("Brain settings")
 
                 Menu {
                     ForEach(availableProfiles) { profile in
@@ -357,16 +400,160 @@ private struct RockyTerminal: View {
             .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.44, green: 0.85, blue: 1.0)))
             .help("New chat")
 
-            Button(action: quit) {
+            Button(action: hide) {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .black))
                     .frame(width: 22, height: 20)
             }
             .buttonStyle(TerminalIconButtonStyle(color: Color(red: 1.0, green: 0.36, blue: 0.28)))
+            .help("Hide. Restore from menu bar.")
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Color(red: 0.04, green: 0.12, blue: 0.07).opacity(0.96))
+    }
+
+    private var settingsPanel: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(BrainProvider.allCases, id: \.self) { provider in
+                        Button {
+                            switchProvider(provider)
+                        } label: {
+                            Label(
+                                provider.displayName,
+                                systemImage: provider == brainProvider ? "checkmark.circle.fill" : "circle"
+                            )
+                        }
+                    }
+                } label: {
+                    Label(brainProvider.displayName, systemImage: "bolt.horizontal")
+                        .frame(minWidth: 126, alignment: .leading)
+                }
+                .menuStyle(.borderlessButton)
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.62, green: 0.90, blue: 1.0)))
+
+                Menu {
+                    ForEach(modelChoices, id: \.self) { choice in
+                        Button {
+                            selectModel(choice)
+                        } label: {
+                            Label(
+                                choice.isEmpty ? "\(brainProvider.displayName) default" : choice,
+                                systemImage: normalizedModelChoice(choice) == normalizedModelChoice(model) ? "checkmark.circle.fill" : "cpu"
+                            )
+                        }
+                    }
+                } label: {
+                    Label(normalizedModelChoice(model).isEmpty ? "\(brainProvider.displayName) default" : normalizedModelChoice(model), systemImage: "cpu")
+                        .frame(minWidth: 128, alignment: .leading)
+                }
+                .menuStyle(.borderlessButton)
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.72, green: 1.0, blue: 0.62)))
+
+                TextField("custom model", text: $model)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(.white.opacity(0.84))
+                    .frame(minWidth: 110)
+                    .onSubmit(saveBrainSettings)
+
+                Button(action: saveBrainSettings) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 10, weight: .black))
+                        .frame(width: 24, height: 20)
+                }
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.65, green: 1.0, blue: 0.54)))
+                .help("Save brain settings")
+            }
+
+            if brainProvider.supportsBaseURL {
+                HStack(spacing: 8) {
+                    TextField("base URL", text: $providerBaseURL)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .onSubmit(saveBrainSettings)
+
+                    Text(brainProvider.defaultBaseURL.isEmpty ? "No default URL" : brainProvider.defaultBaseURL)
+                        .foregroundStyle(Color.white.opacity(0.54))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: 210, alignment: .trailing)
+                }
+            }
+
+            if brainProvider.requiresAPIKey {
+                HStack(spacing: 8) {
+                    SecureField(brainProvider.apiKeyPlaceholder, text: $providerAPIKey)
+                        .textFieldStyle(.plain)
+                        .foregroundStyle(.white.opacity(0.86))
+                        .onSubmit(saveBrainSettings)
+
+                    Text(apiKeyStatus)
+                        .foregroundStyle(Color.white.opacity(0.54))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .frame(width: 170, alignment: .trailing)
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button(action: previewNormalState) {
+                    Label("Normal", systemImage: "circle")
+                        .frame(height: 20)
+                }
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.62, green: 0.90, blue: 1.0)))
+                .help("Preview normal state")
+
+                Button(action: previewThinkingState) {
+                    Label("Thinking", systemImage: "gearshape")
+                        .frame(height: 20)
+                }
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 0.78, green: 0.68, blue: 1.0)))
+                .help("Preview thinking state")
+
+                Button(action: previewIdleAction) {
+                    Label("Idle", systemImage: "sparkles")
+                        .frame(height: 20)
+                }
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 1.0, green: 0.78, blue: 0.42)))
+                .help("Preview a random idle action")
+
+                Spacer()
+            }
+
+            TextEditor(text: $agentPrompt)
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.88))
+                .scrollContentBackground(.hidden)
+                .frame(height: 86)
+                .padding(7)
+                .background(Color.black.opacity(0.26))
+                .overlay(Rectangle().stroke(Color.white.opacity(0.14), lineWidth: 1))
+
+            HStack(spacing: 8) {
+                Button(action: resetAgentPrompt) {
+                    Label("Reset prompt", systemImage: "arrow.counterclockwise")
+                        .frame(height: 20)
+                }
+                .buttonStyle(TerminalIconButtonStyle(color: Color(red: 1.0, green: 0.78, blue: 0.42)))
+
+                Spacer()
+
+                Text("Prompt, provider, model, and BYOK settings are local.")
+                    .foregroundStyle(Color.white.opacity(0.45))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .background(Color(red: 0.03, green: 0.07, blue: 0.055).opacity(0.96))
+        .overlay(Rectangle().stroke(Color(red: 0.42, green: 1.0, blue: 0.54).opacity(0.22), lineWidth: 1))
+    }
+
+    private func normalizedModelChoice(_ value: String) -> String {
+        value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private func scrollToBottom(_ proxy: ScrollViewProxy) {
@@ -472,59 +659,164 @@ private struct WindowResizeGrip: View {
 
 private struct CompanionCreatureView: View {
     let profile: CompanionProfile
-    let mood: RockyMood
-    let animation: RockyAnimation
+    let mood: CompanionMood
+    let animation: CompanionAnimation
     let isAwake: Bool
 
     var body: some View {
-        switch profile.visualStyle {
-        case .orangePixelCat:
-            OrangePixelCatView(mood: mood, animation: animation, isAwake: isAwake)
-        case .cuteBuddy:
-            CuteBuddyView(mood: mood, animation: animation, isAwake: isAwake)
-        case .tronPixel:
-            TronPixelBuddyView(mood: mood, animation: animation, isAwake: isAwake)
-        default:
-            RockyCreatureView(mood: mood, animation: animation, isAwake: isAwake)
+        if let asset = profile.asset(for: animation),
+           let image = CompanionAssetView.image(for: asset) {
+            CompanionAssetView(image: image, kind: asset.kind)
+        } else {
+            switch profile.visualStyle {
+            case .cartoonCat:
+                CartoonCatView(mood: mood, animation: animation, isAwake: isAwake)
+            case .cuteBuddy:
+                CuteBuddyView(mood: mood, animation: animation, isAwake: isAwake)
+            default:
+                RockyCreatureView(mood: mood, animation: animation, isAwake: isAwake)
+            }
         }
     }
 }
 
-private struct OrangePixelCatView: View {
-    let mood: RockyMood
-    let animation: RockyAnimation
+private struct CompanionAssetView: NSViewRepresentable {
+    let image: NSImage
+    let kind: CompanionAssetKind
+
+    func makeNSView(context: Context) -> NSImageView {
+        let imageView = NSImageView()
+        imageView.imageAlignment = .alignCenter
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.animates = kind == .gif
+        return imageView
+    }
+
+    func updateNSView(_ imageView: NSImageView, context: Context) {
+        imageView.image = image
+        imageView.animates = kind == .gif
+    }
+
+    static func image(for asset: CompanionVisualAsset) -> NSImage? {
+        let rawPath = asset.path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !rawPath.isEmpty else {
+            return nil
+        }
+
+        if rawPath.hasPrefix("/") || rawPath.hasPrefix("~/") {
+            return NSImage(contentsOf: resolvedURL(for: rawPath))
+        }
+
+        if let resource = NSImage(named: rawPath) {
+            return resource
+        }
+
+        let profilesURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
+            .appendingPathComponent("AgentRocky/profiles", isDirectory: true)
+            .appendingPathComponent(rawPath)
+        if let profilesURL,
+           let image = NSImage(contentsOf: profilesURL) {
+            return image
+        }
+
+        return nil
+    }
+
+    private static func resolvedURL(for path: String) -> URL {
+        if path.hasPrefix("~/") {
+            let suffix = String(path.dropFirst(2))
+            return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(suffix)
+        }
+
+        return URL(fileURLWithPath: path)
+    }
+}
+
+private struct CartoonCatView: View {
+    let mood: CompanionMood
+    let animation: CompanionAnimation
     let isAwake: Bool
 
     @State private var wiggle = false
     @State private var blink = false
 
+    private let canvas = CGSize(width: 150, height: 128)
+
     var body: some View {
         GeometryReader { geometry in
-            let unit = min(geometry.size.width / 18, geometry.size.height / 16)
-            let originX = (geometry.size.width - unit * 18) / 2
-            let originY = (geometry.size.height - unit * 16) / 2
+            let scale = min(geometry.size.width / canvas.width, geometry.size.height / canvas.height)
+            let originX = (geometry.size.width - canvas.width * scale) / 2
+            let originY = (geometry.size.height - canvas.height * scale) / 2
 
             ZStack(alignment: .topLeading) {
                 Ellipse()
-                    .fill(.black.opacity(0.28))
-                    .frame(width: unit * 12, height: unit * 1.2)
-                    .blur(radius: unit * 0.35)
-                    .offset(x: originX + unit * 3.2, y: originY + unit * 13.7)
+                    .fill(.black.opacity(0.25))
+                    .frame(width: 88, height: 14)
+                    .blur(radius: 4)
+                    .position(x: 75, y: 112)
 
-                ForEach(pixelBlocks(), id: \.id) { block in
-                    let pixelOffset = offset(for: block.motion, unit: unit)
+                tail
+                    .offset(y: tailMotion)
 
-                    Rectangle()
-                        .fill(block.color)
-                        .frame(width: block.w * unit, height: block.h * unit)
-                        .offset(
-                            x: originX + block.x * unit + pixelOffset.width,
-                            y: originY + block.y * unit + pixelOffset.height
-                        )
+                RoundedRectangle(cornerRadius: 27, style: .continuous)
+                    .fill(bodyGradient)
+                    .frame(width: 74, height: 50)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 27, style: .continuous)
+                            .stroke(outline, lineWidth: 3)
+                    )
+                    .position(x: 78, y: 78)
+                    .offset(y: bodyMotion)
+
+                Ellipse()
+                    .fill(cream.opacity(0.92))
+                    .frame(width: 40, height: 28)
+                    .position(x: 78, y: 84)
+                    .offset(y: bodyMotion)
+
+                paw(x: 55, activeOffset: pawMotionA)
+                paw(x: 96, activeOffset: pawMotionB)
+
+                ears
+                    .offset(y: headMotion)
+
+                Circle()
+                    .fill(headGradient)
+                    .frame(width: 60, height: 56)
+                    .overlay(Circle().stroke(outline, lineWidth: 3))
+                    .position(x: 70, y: 43)
+                    .offset(y: headMotion)
+
+                cheek(x: 52)
+                cheek(x: 88)
+
+                face
+                    .offset(y: headMotion)
+
+                if animation == .lick {
+                    Capsule()
+                        .fill(pink)
+                        .frame(width: 8, height: wiggle ? 15 : 10)
+                        .position(x: 70, y: 62)
+                        .offset(y: headMotion)
+                }
+
+                if animation == .play || animation == .playBall {
+                    playBall
+                }
+
+                if animation == .purr || mood == .happy {
+                    purrMarks
+                }
+
+                if animation == .sleep {
+                    sleepMarks
                 }
             }
-            .offset(y: verticalMotion)
-            .scaleEffect(isAwake ? 1.04 : 1.0)
+            .frame(width: canvas.width, height: canvas.height)
+            .scaleEffect(scale, anchor: .topLeading)
+            .offset(x: originX, y: originY + verticalMotion)
+            .scaleEffect(isAwake ? 1.03 : 1.0)
             .animation(.easeInOut(duration: 0.36).repeatForever(autoreverses: true), value: wiggle)
             .animation(.easeInOut(duration: 0.16), value: isAwake)
             .onAppear {
@@ -544,163 +836,293 @@ private struct OrangePixelCatView: View {
     private var verticalMotion: CGFloat {
         switch animation {
         case .happyBounce, .excited:
-            return wiggle ? -7 : -1
+            return wiggle ? -5 : -1
         case .walk, .play, .playBall:
-            return wiggle ? -4 : 0
+            return wiggle ? -3 : 0
+        case .sleep:
+            return 4
+        default:
+            return wiggle ? -1.5 : 0
+        }
+    }
+
+    private var bodyMotion: CGFloat {
+        animation == .happyBounce || animation == .excited ? (wiggle ? -2 : 1) : 0
+    }
+
+    private var headMotion: CGFloat {
+        switch animation {
+        case .happyBounce, .excited, .purr:
+            return wiggle ? -3 : 0
         case .sleep:
             return 3
         default:
-            return wiggle ? -2 : 0
+            return wiggle ? -1 : 0
         }
     }
 
-    private func offset(for motion: PixelCatMotion, unit: CGFloat) -> CGSize {
-        switch motion {
-        case .none:
-            return .zero
-        case .tail:
-            return CGSize(width: 0, height: wiggle ? -unit : unit * 0.2)
-        case .pawA:
-            return animation == .walk || animation == .play ? CGSize(width: wiggle ? -unit : unit, height: 0) : .zero
-        case .pawB:
-            return animation == .walk || animation == .play ? CGSize(width: wiggle ? unit : -unit, height: 0) : .zero
-        case .head:
-            return animation == .happyBounce || animation == .excited ? CGSize(width: 0, height: wiggle ? -unit : 0) : .zero
-        case .tongue:
-            return animation == .lick ? CGSize(width: 0, height: wiggle ? unit * 0.4 : 0) : .zero
-        case .ball:
-            return CGSize(width: wiggle ? unit : -unit, height: 0)
-        case .purr:
-            return CGSize(width: 0, height: wiggle ? -unit * 0.5 : unit * 0.2)
+    private var tailMotion: CGFloat {
+        animation == .sleep ? 3 : (wiggle ? -3 : 2)
+    }
+
+    private var pawMotionA: CGSize {
+        animation == .walk || animation == .play ? CGSize(width: wiggle ? -4 : 3, height: wiggle ? -1 : 1) : .zero
+    }
+
+    private var pawMotionB: CGSize {
+        animation == .walk || animation == .play ? CGSize(width: wiggle ? 3 : -4, height: wiggle ? 1 : -1) : .zero
+    }
+
+    private var outline: Color {
+        Color(red: 0.17, green: 0.09, blue: 0.045)
+    }
+
+    private var orange: Color {
+        Color(red: 0.96, green: 0.50, blue: 0.20)
+    }
+
+    private var lightOrange: Color {
+        Color(red: 1.0, green: 0.69, blue: 0.35)
+    }
+
+    private var cream: Color {
+        Color(red: 1.0, green: 0.87, blue: 0.66)
+    }
+
+    private var pink: Color {
+        Color(red: 1.0, green: 0.48, blue: 0.58)
+    }
+
+    private var moodTint: Color {
+        switch mood {
+        case .happy:
+            return Color(red: 1.0, green: 0.80, blue: 0.22)
+        case .thinking:
+            return Color(red: 0.34, green: 0.82, blue: 1.0)
+        case .sleepy:
+            return Color(red: 0.62, green: 0.66, blue: 1.0)
+        case .curious:
+            return Color(red: 0.56, green: 0.95, blue: 0.58)
+        case .error:
+            return Color(red: 1.0, green: 0.34, blue: 0.24)
         }
     }
 
-    private func pixelBlocks() -> [PixelCatBlock] {
-        let outline = Color(red: 0.10, green: 0.055, blue: 0.025)
-        let dark = Color(red: 0.30, green: 0.13, blue: 0.045)
-        let orange = Color(red: 0.96, green: 0.47, blue: 0.12)
-        let light = Color(red: 1.0, green: 0.70, blue: 0.32)
-        let cream = Color(red: 1.0, green: 0.84, blue: 0.58)
-        let pink = Color(red: 1.0, green: 0.42, blue: 0.52)
-        let eye = blink || animation == .sleep ? dark.opacity(0.78) : Color.black.opacity(0.9)
-        let ball = Color(red: 0.16, green: 0.76, blue: 1.0)
+    private var bodyGradient: LinearGradient {
+        LinearGradient(
+            colors: [lightOrange, orange, Color(red: 0.78, green: 0.30, blue: 0.12)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
-        var blocks: [PixelCatBlock] = [
-            // Tail.
-            PixelCatBlock(14, 7, 1, 4, outline, .tail),
-            PixelCatBlock(15, 5, 1, 3, outline, .tail),
-            PixelCatBlock(16, 5, 1, 1, outline, .tail),
-            PixelCatBlock(14, 8, 1, 2, orange, .tail),
-            PixelCatBlock(15, 6, 1, 2, light, .tail),
+    private var headGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color(red: 1.0, green: 0.78, blue: 0.45), orange],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
-            // Body.
-            PixelCatBlock(5, 7, 9, 1, outline),
-            PixelCatBlock(4, 8, 11, 4, outline),
-            PixelCatBlock(5, 12, 9, 1, outline),
-            PixelCatBlock(5, 8, 9, 3, orange),
-            PixelCatBlock(6, 11, 6, 1, light),
-            PixelCatBlock(7, 8, 1, 3, dark.opacity(0.52)),
-            PixelCatBlock(10, 8, 1, 3, dark.opacity(0.45)),
-            PixelCatBlock(13, 9, 1, 2, dark.opacity(0.5)),
+    private var tail: some View {
+        Group {
+            Path { path in
+                path.move(to: CGPoint(x: 109, y: 75))
+                path.addCurve(to: CGPoint(x: 132, y: 39), control1: CGPoint(x: 130, y: 73), control2: CGPoint(x: 138, y: 54))
+                path.addCurve(to: CGPoint(x: 119, y: 31), control1: CGPoint(x: 130, y: 32), control2: CGPoint(x: 123, y: 30))
+            }
+            .stroke(outline, style: StrokeStyle(lineWidth: 18, lineCap: .round, lineJoin: .round))
 
-            // Paws.
-            PixelCatBlock(5, 12, 2, 1, outline, .pawA),
-            PixelCatBlock(11, 12, 2, 1, outline, .pawB),
-            PixelCatBlock(6, 12, 1, 1, cream, .pawA),
-            PixelCatBlock(12, 12, 1, 1, cream, .pawB),
-
-            // Ears and head.
-            PixelCatBlock(5, 2, 1, 2, outline, .head),
-            PixelCatBlock(6, 3, 1, 1, orange, .head),
-            PixelCatBlock(11, 2, 1, 2, outline, .head),
-            PixelCatBlock(10, 3, 1, 1, light, .head),
-            PixelCatBlock(4, 4, 9, 1, outline, .head),
-            PixelCatBlock(3, 5, 11, 4, outline, .head),
-            PixelCatBlock(4, 9, 9, 1, outline, .head),
-            PixelCatBlock(4, 5, 9, 3, light, .head),
-            PixelCatBlock(5, 8, 7, 1, cream, .head),
-            PixelCatBlock(6, 5, 1, 2, orange, .head),
-            PixelCatBlock(10, 5, 1, 2, orange, .head),
-
-            // Face.
-            PixelCatBlock(6, 6, 1, animation == .sleep ? 0.3 : 1, eye, .head),
-            PixelCatBlock(10, 6, 1, animation == .sleep ? 0.3 : 1, eye, .head),
-            PixelCatBlock(8, 7, 1, 1, dark, .head),
-            PixelCatBlock(7, 8, 1, 0.4, dark.opacity(0.72), .head),
-            PixelCatBlock(9, 8, 1, 0.4, dark.opacity(0.72), .head)
-        ]
-
-        if animation == .lick {
-            blocks.append(PixelCatBlock(8, 8, 1, 2, pink, .tongue))
-        }
-
-        if animation == .play || animation == .playBall {
-            blocks.append(contentsOf: [
-                PixelCatBlock(1, 11, 2, 2, outline, .ball),
-                PixelCatBlock(1, 11, 1, 1, ball, .ball),
-                PixelCatBlock(2, 12, 1, 1, ball.opacity(0.82), .ball),
-                PixelCatBlock(1, 12, 1, 1, Color.white.opacity(0.8), .ball)
-            ])
-        }
-
-        if animation == .purr {
-            blocks.append(contentsOf: [
-                PixelCatBlock(2, 4, 1, 1, Color(red: 1.0, green: 0.84, blue: 0.24).opacity(wiggle ? 0.95 : 0.42), .purr),
-                PixelCatBlock(14, 4, 1, 1, Color(red: 1.0, green: 0.84, blue: 0.24).opacity(wiggle ? 0.95 : 0.42), .purr),
-                PixelCatBlock(3, 3, 1, 1, Color(red: 1.0, green: 0.84, blue: 0.24).opacity(0.45), .purr),
-                PixelCatBlock(13, 3, 1, 1, Color(red: 1.0, green: 0.84, blue: 0.24).opacity(0.45), .purr)
-            ])
-        }
-
-        if animation == .sleep {
-            blocks.append(contentsOf: [
-                PixelCatBlock(13, 5, 1, 1, Color.white.opacity(0.8), .none),
-                PixelCatBlock(14, 4, 1, 1, Color.white.opacity(0.62), .none),
-                PixelCatBlock(15, 3, 1, 1, Color.white.opacity(0.42), .none)
-            ])
-        }
-
-        return blocks.enumerated().map { index, block in
-            var mutable = block
-            mutable.id = index
-            return mutable
+            Path { path in
+                path.move(to: CGPoint(x: 109, y: 75))
+                path.addCurve(to: CGPoint(x: 132, y: 39), control1: CGPoint(x: 130, y: 73), control2: CGPoint(x: 138, y: 54))
+                path.addCurve(to: CGPoint(x: 119, y: 31), control1: CGPoint(x: 130, y: 32), control2: CGPoint(x: 123, y: 30))
+            }
+            .stroke(lightOrange, style: StrokeStyle(lineWidth: 10, lineCap: .round, lineJoin: .round))
         }
     }
-}
 
-private enum PixelCatMotion {
-    case none
-    case tail
-    case pawA
-    case pawB
-    case head
-    case tongue
-    case ball
-    case purr
-}
+    private var ears: some View {
+        Group {
+            Path { path in
+                path.move(to: CGPoint(x: 48, y: 30))
+                path.addLine(to: CGPoint(x: 53, y: 7))
+                path.addLine(to: CGPoint(x: 66, y: 29))
+                path.closeSubpath()
+            }
+            .fill(orange)
+            .overlay(
+                Path { path in
+                    path.move(to: CGPoint(x: 48, y: 30))
+                    path.addLine(to: CGPoint(x: 53, y: 7))
+                    path.addLine(to: CGPoint(x: 66, y: 29))
+                    path.closeSubpath()
+                }
+                .stroke(outline, lineWidth: 3)
+            )
 
-private struct PixelCatBlock {
-    var id = 0
-    let x: CGFloat
-    let y: CGFloat
-    let w: CGFloat
-    let h: CGFloat
-    let color: Color
-    let motion: PixelCatMotion
+            Path { path in
+                path.move(to: CGPoint(x: 74, y: 29))
+                path.addLine(to: CGPoint(x: 90, y: 8))
+                path.addLine(to: CGPoint(x: 93, y: 31))
+                path.closeSubpath()
+            }
+            .fill(lightOrange)
+            .overlay(
+                Path { path in
+                    path.move(to: CGPoint(x: 74, y: 29))
+                    path.addLine(to: CGPoint(x: 90, y: 8))
+                    path.addLine(to: CGPoint(x: 93, y: 31))
+                    path.closeSubpath()
+                }
+                .stroke(outline, lineWidth: 3)
+            )
 
-    init(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color, _ motion: PixelCatMotion = .none) {
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.color = color
-        self.motion = motion
+            Path { path in
+                path.move(to: CGPoint(x: 54, y: 24))
+                path.addLine(to: CGPoint(x: 56, y: 15))
+                path.addLine(to: CGPoint(x: 61, y: 25))
+                path.closeSubpath()
+            }
+            .fill(pink.opacity(0.72))
+
+            Path { path in
+                path.move(to: CGPoint(x: 83, y: 25))
+                path.addLine(to: CGPoint(x: 88, y: 16))
+                path.addLine(to: CGPoint(x: 89, y: 26))
+                path.closeSubpath()
+            }
+            .fill(pink.opacity(0.72))
+        }
+    }
+
+    private var face: some View {
+        Group {
+            if blink || animation == .sleep {
+                Capsule()
+                    .fill(outline.opacity(0.82))
+                    .frame(width: 11, height: 2.5)
+                    .position(x: 58, y: 42)
+                Capsule()
+                    .fill(outline.opacity(0.82))
+                    .frame(width: 11, height: 2.5)
+                    .position(x: 82, y: 42)
+            } else {
+                Circle()
+                    .fill(Color.black.opacity(0.9))
+                    .frame(width: 8, height: 9)
+                    .position(x: 58, y: 42)
+                Circle()
+                    .fill(Color.black.opacity(0.9))
+                    .frame(width: 8, height: 9)
+                    .position(x: 82, y: 42)
+                Circle()
+                    .fill(.white.opacity(0.9))
+                    .frame(width: 2.5, height: 2.5)
+                    .position(x: 56.5, y: 40)
+                Circle()
+                    .fill(.white.opacity(0.9))
+                    .frame(width: 2.5, height: 2.5)
+                    .position(x: 80.5, y: 40)
+            }
+
+            Capsule()
+                .fill(pink)
+                .frame(width: 9, height: 6)
+                .position(x: 70, y: 52)
+
+            Path { path in
+                path.move(to: CGPoint(x: 70, y: 55))
+                path.addCurve(to: CGPoint(x: 62, y: 60), control1: CGPoint(x: 68, y: 59), control2: CGPoint(x: 65, y: 61))
+                path.move(to: CGPoint(x: 70, y: 55))
+                path.addCurve(to: CGPoint(x: 78, y: 60), control1: CGPoint(x: 72, y: 59), control2: CGPoint(x: 75, y: 61))
+            }
+            .stroke(outline.opacity(0.74), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+
+            whiskers
+        }
+    }
+
+    private var whiskers: some View {
+        Path { path in
+            path.move(to: CGPoint(x: 48, y: 51))
+            path.addLine(to: CGPoint(x: 31, y: 47))
+            path.move(to: CGPoint(x: 48, y: 56))
+            path.addLine(to: CGPoint(x: 30, y: 57))
+            path.move(to: CGPoint(x: 92, y: 51))
+            path.addLine(to: CGPoint(x: 110, y: 47))
+            path.move(to: CGPoint(x: 92, y: 56))
+            path.addLine(to: CGPoint(x: 111, y: 57))
+        }
+        .stroke(outline.opacity(0.55), style: StrokeStyle(lineWidth: 1.6, lineCap: .round))
+    }
+
+    private func cheek(x: CGFloat) -> some View {
+        Circle()
+            .fill(pink.opacity(animation == .purr ? 0.35 : 0.22))
+            .frame(width: 13, height: 9)
+            .position(x: x, y: 54)
+            .offset(y: headMotion)
+    }
+
+    private func paw(x: CGFloat, activeOffset: CGSize) -> some View {
+        Capsule()
+            .fill(cream)
+            .frame(width: 19, height: 11)
+            .overlay(Capsule().stroke(outline.opacity(0.82), lineWidth: 2))
+            .position(x: x, y: 102)
+            .offset(x: activeOffset.width, y: activeOffset.height + bodyMotion)
+    }
+
+    private var playBall: some View {
+        ZStack {
+            Circle()
+                .fill(Color(red: 0.24, green: 0.76, blue: 1.0))
+                .frame(width: 22, height: 22)
+                .overlay(Circle().stroke(outline, lineWidth: 2))
+            Circle()
+                .fill(.white.opacity(0.84))
+                .frame(width: 6, height: 6)
+                .offset(x: -4, y: -4)
+        }
+        .position(x: wiggle ? 30 : 36, y: 96)
+    }
+
+    private var purrMarks: some View {
+        Group {
+            Circle()
+                .fill(moodTint.opacity(wiggle ? 0.82 : 0.36))
+                .frame(width: 7, height: 7)
+                .position(x: 29, y: 29)
+            Circle()
+                .fill(moodTint.opacity(wiggle ? 0.36 : 0.72))
+                .frame(width: 5, height: 5)
+                .position(x: 110, y: 25)
+            Circle()
+                .fill(moodTint.opacity(0.45))
+                .frame(width: 4, height: 4)
+                .position(x: 119, y: 37)
+        }
+        .offset(y: wiggle ? -2 : 1)
+    }
+
+    private var sleepMarks: some View {
+        Group {
+            Text("z")
+                .font(.system(size: 13, weight: .black, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.86))
+                .position(x: 113, y: 30)
+            Text("Z")
+                .font(.system(size: 17, weight: .black, design: .rounded))
+                .foregroundStyle(Color.white.opacity(0.62))
+                .position(x: 128, y: 18)
+        }
     }
 }
 
 private struct CuteBuddyView: View {
-    let mood: RockyMood
-    let animation: RockyAnimation
+    let mood: CompanionMood
+    let animation: CompanionAnimation
     let isAwake: Bool
 
     @State private var pulse = false
@@ -709,9 +1131,9 @@ private struct CuteBuddyView: View {
         ZStack {
             Ellipse()
                 .fill(.black.opacity(0.28))
-                .frame(width: 94, height: 15)
+                .frame(width: 76, height: 12)
                 .blur(radius: 4)
-                .offset(y: 54)
+                .offset(y: 45)
 
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .fill(LinearGradient(
@@ -719,24 +1141,24 @@ private struct CuteBuddyView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ))
-                .frame(width: 92, height: 82)
-                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black.opacity(0.48), lineWidth: 3))
-                .offset(y: pulse ? -6 : 0)
+                .frame(width: 76, height: 68)
+                .overlay(RoundedRectangle(cornerRadius: 20).stroke(Color.black.opacity(0.48), lineWidth: 2.5))
+                .offset(y: pulse ? -4 : 0)
 
             Circle()
                 .fill(.black.opacity(0.86))
-                .frame(width: 9, height: 9)
-                .offset(x: -18, y: -10)
+                .frame(width: 7, height: 7)
+                .offset(x: -15, y: -8)
             Circle()
                 .fill(.black.opacity(0.86))
-                .frame(width: 9, height: 9)
-                .offset(x: 18, y: -10)
+                .frame(width: 7, height: 7)
+                .offset(x: 15, y: -8)
             Capsule()
                 .fill(.black.opacity(0.56))
-                .frame(width: 28, height: 5)
-                .offset(y: 13)
+                .frame(width: 23, height: 4)
+                .offset(y: 10)
         }
-        .scaleEffect(isAwake ? 1.04 : 1.0)
+        .scaleEffect(isAwake ? 1.03 : 1.0)
         .animation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true), value: pulse)
         .onAppear {
             pulse = true
@@ -744,239 +1166,9 @@ private struct CuteBuddyView: View {
     }
 }
 
-private struct TronPixelBuddyView: View {
-    let mood: RockyMood
-    let animation: RockyAnimation
-    let isAwake: Bool
-
-    @State private var pulse = false
-    @State private var blink = false
-
-    private let cyan = Color(red: 0.18, green: 0.94, blue: 1.0)
-    private let orange = Color(red: 1.0, green: 0.46, blue: 0.16)
-    private let bodyDark = Color(red: 0.025, green: 0.035, blue: 0.055)
-
-    var body: some View {
-        GeometryReader { geometry in
-            let unit = min(geometry.size.width / 20, geometry.size.height / 18)
-            let originX = (geometry.size.width - unit * 20) / 2
-            let originY = (geometry.size.height - unit * 18) / 2
-            let bob = verticalMotion(unit: unit)
-
-            ZStack(alignment: .topLeading) {
-                pixelLayer(gridBlocks(), unit: unit, originX: originX, originY: originY)
-                pixelLayer(lightTrailBlocks(), unit: unit, originX: originX + trailMotion(unit: unit), originY: originY)
-                    .opacity(isAwake ? 0.96 : 0.62)
-                pixelLayer(spriteBlocks(), unit: unit, originX: originX, originY: originY + bob)
-
-                if animation == .happyBounce || animation == .excited {
-                    pixelLayer(heartBlocks(), unit: unit, originX: originX, originY: originY + (pulse ? -unit : 0))
-                }
-
-                if animation == .think || animation == .workInPlace || animation == .pulse {
-                    pixelLayer(scanBlocks(), unit: unit, originX: originX, originY: originY + scanMotion(unit: unit))
-                }
-            }
-        }
-        .scaleEffect(isAwake ? 1.05 : 1.0)
-        .animation(.easeInOut(duration: 0.42).repeatForever(autoreverses: true), value: pulse)
-        .animation(.easeInOut(duration: 0.16), value: isAwake)
-        .onAppear {
-            pulse = true
-        }
-        .task {
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(3.0))
-                blink = true
-                try? await Task.sleep(for: .milliseconds(150))
-                blink = false
-            }
-        }
-    }
-
-    private func pixelLayer(_ blocks: [TronPixelBlock], unit: CGFloat, originX: CGFloat, originY: CGFloat) -> some View {
-        ForEach(blocks) { block in
-            Rectangle()
-                .fill(block.color)
-                .frame(width: block.w * unit, height: block.h * unit)
-                .offset(x: originX + block.x * unit, y: originY + block.y * unit)
-        }
-    }
-
-    private func verticalMotion(unit: CGFloat) -> CGFloat {
-        switch animation {
-        case .happyBounce, .excited:
-            return pulse ? -1.3 * unit : -0.2 * unit
-        case .think, .pulse, .workInPlace:
-            return pulse ? -0.7 * unit : 0
-        case .thumbsUp, .wave:
-            return pulse ? -1.0 * unit : -0.2 * unit
-        default:
-            return pulse ? -0.55 * unit : 0
-        }
-    }
-
-    private func trailMotion(unit: CGFloat) -> CGFloat {
-        pulse ? unit * 0.5 : -unit * 0.4
-    }
-
-    private func scanMotion(unit: CGFloat) -> CGFloat {
-        pulse ? -unit * 0.3 : unit * 0.4
-    }
-
-    private func gridBlocks() -> [TronPixelBlock] {
-        let grid = cyan.opacity(pulse ? 0.28 : 0.18)
-        let darkGrid = cyan.opacity(0.10)
-
-        return numbered([
-            TronPixelBlock(1, 16, 18, 0.35, grid),
-            TronPixelBlock(3, 15, 14, 0.30, darkGrid),
-            TronPixelBlock(5, 14, 10, 0.25, darkGrid),
-            TronPixelBlock(2, 14, 0.35, 3, darkGrid),
-            TronPixelBlock(6, 13, 0.35, 4, grid),
-            TronPixelBlock(10, 13, 0.35, 4, darkGrid),
-            TronPixelBlock(14, 13, 0.35, 4, grid),
-            TronPixelBlock(18, 14, 0.35, 3, darkGrid)
-        ])
-    }
-
-    private func lightTrailBlocks() -> [TronPixelBlock] {
-        numbered([
-            TronPixelBlock(1, 12, 5, 1, cyan.opacity(0.24)),
-            TronPixelBlock(2, 13, 6, 1, cyan.opacity(0.44)),
-            TronPixelBlock(3, 14, 4, 1, orange.opacity(0.55)),
-            TronPixelBlock(0, 15, 8, 1, cyan.opacity(0.16))
-        ])
-    }
-
-    private func spriteBlocks() -> [TronPixelBlock] {
-        let outline = Color(red: 0.005, green: 0.008, blue: 0.018)
-        let suit = bodyDark
-        let suitLight = Color(red: 0.05, green: 0.07, blue: 0.12)
-        let visor = cyan.opacity(blink || animation == .sleep ? 0.34 : 0.96)
-        let circuit = cyan.opacity(pulse ? 1.0 : 0.68)
-        let disc = mood == .happy ? orange : cyan
-
-        var blocks: [TronPixelBlock] = [
-            // Identity disc dock.
-            TronPixelBlock(14, 6, 3, 1, outline),
-            TronPixelBlock(13, 7, 5, 2, outline),
-            TronPixelBlock(14, 9, 3, 1, outline),
-            TronPixelBlock(14, 7, 3, 2, disc.opacity(0.82)),
-            TronPixelBlock(15, 7, 1, 2, Color.white.opacity(0.72)),
-
-            // Helmet.
-            TronPixelBlock(7, 2, 6, 1, outline),
-            TronPixelBlock(6, 3, 8, 1, outline),
-            TronPixelBlock(5, 4, 10, 3, outline),
-            TronPixelBlock(6, 7, 8, 1, outline),
-            TronPixelBlock(7, 3, 6, 1, suitLight),
-            TronPixelBlock(6, 4, 8, 2, suit),
-            TronPixelBlock(7, 6, 6, 1, suitLight),
-            TronPixelBlock(7, 4, 6, 1, visor),
-            TronPixelBlock(8, 5, 4, 1, cyan.opacity(0.30)),
-            TronPixelBlock(9, 6, 2, 1, orange.opacity(0.76)),
-
-            // Torso.
-            TronPixelBlock(7, 8, 6, 1, outline),
-            TronPixelBlock(6, 9, 8, 4, outline),
-            TronPixelBlock(7, 13, 6, 1, outline),
-            TronPixelBlock(7, 9, 6, 3, suit),
-            TronPixelBlock(8, 12, 4, 1, suitLight),
-            TronPixelBlock(8, 9, 4, 1, circuit),
-            TronPixelBlock(10, 10, 1, 2, circuit),
-            TronPixelBlock(9, 11, 3, 1, orange.opacity(0.76)),
-
-            // Left arm.
-            TronPixelBlock(4, 8, 3, 1, outline),
-            TronPixelBlock(3, 9, 3, 1, outline),
-            TronPixelBlock(3, 10, 2, 1, outline),
-            TronPixelBlock(4, 9, 2, 1, suit),
-            TronPixelBlock(3, 10, 1, 1, circuit),
-
-            // Legs and boots.
-            TronPixelBlock(7, 14, 2, 2, outline),
-            TronPixelBlock(11, 14, 2, 2, outline),
-            TronPixelBlock(7, 14, 1, 2, suit),
-            TronPixelBlock(11, 14, 1, 2, suit),
-            TronPixelBlock(6, 16, 3, 1, outline),
-            TronPixelBlock(11, 16, 3, 1, outline),
-            TronPixelBlock(7, 16, 2, 1, circuit),
-            TronPixelBlock(11, 16, 2, 1, circuit)
-        ]
-
-        if animation == .thumbsUp || animation == .wave {
-            blocks.append(contentsOf: [
-                TronPixelBlock(13, 8, 2, 1, outline),
-                TronPixelBlock(14, 6, 1, 3, outline),
-                TronPixelBlock(15, 5, 1, 2, outline),
-                TronPixelBlock(16, 4, 1, 1, orange.opacity(0.94)),
-                TronPixelBlock(14, 7, 1, 1, circuit)
-            ])
-        } else {
-            blocks.append(contentsOf: [
-                TronPixelBlock(13, 8, 3, 1, outline),
-                TronPixelBlock(14, 9, 3, 1, outline),
-                TronPixelBlock(15, 10, 2, 1, outline),
-                TronPixelBlock(14, 9, 2, 1, suit),
-                TronPixelBlock(16, 10, 1, 1, circuit)
-            ])
-        }
-
-        return numbered(blocks)
-    }
-
-    private func heartBlocks() -> [TronPixelBlock] {
-        numbered([
-            TronPixelBlock(16, 2, 1, 1, orange.opacity(0.95)),
-            TronPixelBlock(18, 2, 1, 1, orange.opacity(0.95)),
-            TronPixelBlock(15, 3, 5, 1, orange.opacity(0.95)),
-            TronPixelBlock(16, 4, 3, 1, orange.opacity(0.86)),
-            TronPixelBlock(17, 5, 1, 1, orange.opacity(0.70)),
-            TronPixelBlock(14, 2, 1, 1, cyan.opacity(0.78)),
-            TronPixelBlock(19, 5, 1, 1, cyan.opacity(0.58))
-        ])
-    }
-
-    private func scanBlocks() -> [TronPixelBlock] {
-        numbered([
-            TronPixelBlock(3, 1, 5, 1, cyan.opacity(pulse ? 0.82 : 0.34)),
-            TronPixelBlock(12, 2, 4, 1, orange.opacity(pulse ? 0.76 : 0.30)),
-            TronPixelBlock(2, 4, 2, 1, cyan.opacity(0.42)),
-            TronPixelBlock(16, 12, 2, 1, cyan.opacity(pulse ? 0.74 : 0.26)),
-            TronPixelBlock(18, 13, 1, 1, orange.opacity(0.62))
-        ])
-    }
-
-    private func numbered(_ blocks: [TronPixelBlock]) -> [TronPixelBlock] {
-        blocks.enumerated().map { index, block in
-            var mutable = block
-            mutable.id = index
-            return mutable
-        }
-    }
-}
-
-private struct TronPixelBlock: Identifiable {
-    var id = 0
-    let x: CGFloat
-    let y: CGFloat
-    let w: CGFloat
-    let h: CGFloat
-    let color: Color
-
-    init(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat, _ color: Color) {
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.color = color
-    }
-}
-
 private struct RockyCreatureView: View {
-    let mood: RockyMood
-    let animation: RockyAnimation
+    let mood: CompanionMood
+    let animation: CompanionAnimation
     let isAwake: Bool
 
     @State private var gaitFrame = false

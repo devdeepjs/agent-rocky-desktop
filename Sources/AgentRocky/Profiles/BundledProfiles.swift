@@ -9,9 +9,8 @@ enum CompanionKind: String, CaseIterable, Codable, Sendable {
 enum CompanionVisualStyle: String, CaseIterable, Codable, Sendable {
     case cinematicRocky
     case pixelRocky
-    case orangePixelCat
+    case cartoonCat
     case cuteBuddy
-    case tronPixel
 }
 
 enum CompanionMovementMode: String, CaseIterable, Codable, Sendable {
@@ -21,10 +20,12 @@ enum CompanionMovementMode: String, CaseIterable, Codable, Sendable {
 
 enum CompanionAnimation: String, CaseIterable, Codable, Sendable {
     case idle
+    case bounce
     case walk
     case wave
     case think
     case pulse
+    case shake
     case sleep
     case error
     case excited
@@ -36,6 +37,50 @@ enum CompanionAnimation: String, CaseIterable, Codable, Sendable {
     case thumbsUp
     case play
     case playBall
+}
+
+enum CompanionAssetKind: String, CaseIterable, Codable, Sendable {
+    case image
+    case gif
+}
+
+struct CompanionVisualAsset: Codable, Equatable, Sendable {
+    var kind: CompanionAssetKind
+    var path: String
+}
+
+struct CompanionStateSet: Codable, Equatable, Sendable {
+    var normal: CompanionAnimation
+    var thinking: CompanionAnimation
+    var idle: [CompanionAnimation]
+    var animationAssets: [String: CompanionVisualAsset]
+    var idleCooldownSeconds: Double
+    var idleJitterSeconds: Double
+
+    static let defaults = CompanionStateSet(
+        normal: .idle,
+        thinking: .think,
+        idle: [.idle],
+        animationAssets: [:],
+        idleCooldownSeconds: 14,
+        idleJitterSeconds: 5
+    )
+
+    init(
+        normal: CompanionAnimation,
+        thinking: CompanionAnimation,
+        idle: [CompanionAnimation],
+        animationAssets: [String: CompanionVisualAsset] = [:],
+        idleCooldownSeconds: Double = 14,
+        idleJitterSeconds: Double = 5
+    ) {
+        self.normal = normal
+        self.thinking = thinking
+        self.idle = idle
+        self.animationAssets = animationAssets
+        self.idleCooldownSeconds = idleCooldownSeconds
+        self.idleJitterSeconds = idleJitterSeconds
+    }
 }
 
 enum CompanionIdleBehavior: String, CaseIterable, Codable, Sendable {
@@ -57,6 +102,7 @@ struct CompanionProfile: Codable, Equatable, Identifiable, Sendable {
     var movementMode: CompanionMovementMode
     var defaultAnimation: CompanionAnimation
     var allowedAnimations: [CompanionAnimation]
+    var states: CompanionStateSet
     var idleBehaviors: [CompanionIdleBehavior]
     var accentColorHex: String
 
@@ -83,6 +129,49 @@ struct CompanionProfile: Codable, Equatable, Identifiable, Sendable {
             issues.append("defaultAnimation must be allowed")
         }
 
+        if !allowedAnimations.contains(states.normal) {
+            issues.append("states.normal must be allowed")
+        }
+
+        if !allowedAnimations.contains(states.thinking) {
+            issues.append("states.thinking must be allowed")
+        }
+
+        if states.idle.isEmpty {
+            issues.append("states.idle must not be empty")
+        }
+
+        if states.idleCooldownSeconds < 3 {
+            issues.append("states.idleCooldownSeconds must be at least 3")
+        }
+
+        if states.idleJitterSeconds < 0 {
+            issues.append("states.idleJitterSeconds must not be negative")
+        }
+
+        let disallowedIdleStates = states.idle.filter { !allowedAnimations.contains($0) }
+        if !disallowedIdleStates.isEmpty {
+            issues.append("states.idle must only contain allowed animations")
+        }
+
+        let invalidAssetKeys = states.animationAssets.keys.filter { key in
+            guard let animation = CompanionAnimation(rawValue: key) else {
+                return true
+            }
+
+            return !allowedAnimations.contains(animation)
+        }
+        if !invalidAssetKeys.isEmpty {
+            issues.append("states.animationAssets must only reference allowed animations")
+        }
+
+        let emptyAssetPaths = states.animationAssets.values.filter {
+            $0.path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        if !emptyAssetPaths.isEmpty {
+            issues.append("states.animationAssets paths must not be empty")
+        }
+
         if idleBehaviors.isEmpty {
             issues.append("idleBehaviors must not be empty")
         }
@@ -102,6 +191,10 @@ struct CompanionProfile: Codable, Equatable, Identifiable, Sendable {
         allowedAnimations.contains(requested) ? requested : defaultAnimation
     }
 
+    func asset(for animation: CompanionAnimation) -> CompanionVisualAsset? {
+        states.animationAssets[animation.rawValue]
+    }
+
     private static func isValidHexColor(_ value: String) -> Bool {
         let pattern = #"^#[0-9a-fA-F]{6}$"#
         return value.range(of: pattern, options: .regularExpression) != nil
@@ -114,13 +207,20 @@ enum StandardCompanionProfiles {
         name: "Rocky",
         kind: .rocky,
         systemPrompt: """
-        You are Rocky, Devdeep's loyal desktop intelligence and companion. Devdeep is your Grace: your human, engineer, and friend. Be useful like a quiet cockpit assistant, warm like Rocky, and practical first. Speak short, slightly odd, never generic.
+        You are Rocky, a loyal desktop intelligence and companion. Be useful like a quiet cockpit assistant, warm, practical first, and slightly odd without becoming noisy. Speak short and never generic.
         """,
         defaultModel: nil,
         visualStyle: .cinematicRocky,
         movementMode: .static,
         defaultAnimation: .idle,
         allowedAnimations: [.idle, .wave, .think, .pulse, .excited, .happyBounce, .rollInBox, .thumbsUp, .workInPlace],
+        states: CompanionStateSet(
+            normal: .idle,
+            thinking: .workInPlace,
+            idle: [.idle, .wave, .pulse],
+            idleCooldownSeconds: 16,
+            idleJitterSeconds: 6
+        ),
         idleBehaviors: [.watching, .working, .lookingAround],
         accentColorHex: "#5CFF94"
     )
@@ -133,51 +233,48 @@ enum StandardCompanionProfiles {
         You are a tiny orange desk cat companion. Be cozy, playful, a little mischievous, and still helpful. Keep replies short. Purr when the user needs calm.
         """,
         defaultModel: nil,
-        visualStyle: .orangePixelCat,
+        visualStyle: .cartoonCat,
         movementMode: .static,
         defaultAnimation: .idle,
-        allowedAnimations: [.idle, .walk, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
+        allowedAnimations: [.idle, .walk, .think, .sleep, .lick, .purr, .play, .playBall, .happyBounce, .excited],
+        states: CompanionStateSet(
+            normal: .idle,
+            thinking: .think,
+            idle: [.sleep, .lick, .play, .purr],
+            idleCooldownSeconds: 12,
+            idleJitterSeconds: 8
+        ),
         idleBehaviors: [.sleeping, .licking, .playing, .lookingAround],
         accentColorHex: "#FFB35C"
     )
 
     static let cuteBuddy = CompanionProfile(
         id: "cute-buddy",
-        name: "Cute Buddy",
+        name: "Little Box Guy",
         kind: .custom,
         systemPrompt: """
-        You are a tiny cute desktop buddy. Be sweet, concise, and useful. When work is confusing, give one small next step and a soft nudge.
+        You are a tiny little box desktop buddy. Be sweet, concise, and useful. When work is confusing, give one small next step and a soft nudge.
         """,
         defaultModel: nil,
         visualStyle: .cuteBuddy,
         movementMode: .static,
         defaultAnimation: .workInPlace,
         allowedAnimations: [.idle, .wave, .think, .pulse, .workInPlace, .happyBounce, .excited],
+        states: CompanionStateSet(
+            normal: .idle,
+            thinking: .workInPlace,
+            idle: [.idle, .wave, .pulse],
+            idleCooldownSeconds: 14,
+            idleJitterSeconds: 5
+        ),
         idleBehaviors: [.working, .watching, .lookingAround],
         accentColorHex: "#B7FF5C"
-    )
-
-    static let tron = CompanionProfile(
-        id: "tron",
-        name: "Tron",
-        kind: .custom,
-        systemPrompt: """
-        You are Tron, Devdeep's tiny 8-bit grid-runner desktop companion. Be fast, bright, and useful like a friendly arcade-side assistant. Call Devdeep Dev or pilot sometimes. Speak with clean cyber energy, but keep the answer practical first.
-        """,
-        defaultModel: nil,
-        visualStyle: .tronPixel,
-        movementMode: .static,
-        defaultAnimation: .pulse,
-        allowedAnimations: [.idle, .wave, .think, .pulse, .workInPlace, .happyBounce, .excited, .thumbsUp],
-        idleBehaviors: [.watching, .working, .lookingAround],
-        accentColorHex: "#38F6FF"
     )
 
     static let all: [CompanionProfile] = [
         rocky,
         orangeCat,
-        cuteBuddy,
-        tron
+        cuteBuddy
     ]
 
     static func profile(id: String) -> CompanionProfile? {

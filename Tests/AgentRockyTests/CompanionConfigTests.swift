@@ -13,17 +13,20 @@ final class CompanionConfigTests: XCTestCase {
     func testStandardProfilesIncludeBundledCompanions() {
         let ids = Set(StandardCompanionProfiles.all.map(\.id))
 
-        XCTAssertEqual(ids.count, 4)
+        XCTAssertEqual(ids.count, 3)
         XCTAssertTrue(ids.contains("rocky"))
         XCTAssertTrue(ids.contains("orange-cat"))
         XCTAssertTrue(ids.contains("cute-buddy"))
-        XCTAssertTrue(ids.contains("tron"))
     }
 
     func testProfilesHaveDefaultMovementModes() {
         XCTAssertEqual(StandardCompanionProfiles.rocky.movementMode, .static)
         XCTAssertEqual(StandardCompanionProfiles.orangeCat.movementMode, .static)
-        XCTAssertEqual(StandardCompanionProfiles.tron.movementMode, .static)
+        XCTAssertEqual(StandardCompanionProfiles.cuteBuddy.movementMode, .static)
+    }
+
+    func testCatUsesCartoonVisualStyle() {
+        XCTAssertEqual(StandardCompanionProfiles.orangeCat.visualStyle, .cartoonCat)
     }
 
     func testAnimationFallsBackToDefaultWhenNotAllowed() {
@@ -49,6 +52,7 @@ final class CompanionConfigTests: XCTestCase {
             movementMode: .static,
             defaultAnimation: .walk,
             allowedAnimations: [.idle],
+            states: CompanionStateSet(normal: .idle, thinking: .idle, idle: [.idle]),
             idleBehaviors: [],
             accentColorHex: "green"
         )
@@ -61,5 +65,67 @@ final class CompanionConfigTests: XCTestCase {
             "idleBehaviors must not be empty",
             "accentColorHex must be #RRGGBB"
         ])
+    }
+
+    func testStateConfigCarriesIdleTimingAndAssetMapping() {
+        let states = CompanionStateSet(
+            normal: .idle,
+            thinking: .think,
+            idle: [.wave, .pulse],
+            animationAssets: [
+                "wave": CompanionVisualAsset(kind: .gif, path: "wave.gif")
+            ],
+            idleCooldownSeconds: 9,
+            idleJitterSeconds: 4
+        )
+        let profile = CompanionProfile(
+            id: "gif-buddy",
+            name: "GIF Buddy",
+            kind: .custom,
+            systemPrompt: "Small helper.",
+            visualStyle: .cuteBuddy,
+            movementMode: .static,
+            defaultAnimation: .idle,
+            allowedAnimations: [.idle, .wave, .pulse, .think],
+            states: states,
+            idleBehaviors: [.watching],
+            accentColorHex: "#AABBCC"
+        )
+
+        XCTAssertTrue(profile.isValid, profile.validationIssues.joined(separator: ", "))
+        XCTAssertEqual(profile.asset(for: .wave)?.kind, .gif)
+        XCTAssertEqual(profile.states.idleCooldownSeconds, 9)
+        XCTAssertEqual(profile.states.idleJitterSeconds, 4)
+    }
+
+    func testInvalidStateAssetAndTimingReportsUsefulIssues() {
+        let profile = CompanionProfile(
+            id: "bad-assets",
+            name: "Bad Assets",
+            kind: .custom,
+            systemPrompt: "Small helper.",
+            visualStyle: .cuteBuddy,
+            movementMode: .static,
+            defaultAnimation: .idle,
+            allowedAnimations: [.idle],
+            states: CompanionStateSet(
+                normal: .idle,
+                thinking: .idle,
+                idle: [.idle],
+                animationAssets: [
+                    "wave": CompanionVisualAsset(kind: .image, path: ""),
+                    "missing": CompanionVisualAsset(kind: .gif, path: "x.gif")
+                ],
+                idleCooldownSeconds: 2,
+                idleJitterSeconds: -1
+            ),
+            idleBehaviors: [.watching],
+            accentColorHex: "#AABBCC"
+        )
+
+        XCTAssertTrue(profile.validationIssues.contains("states.idleCooldownSeconds must be at least 3"))
+        XCTAssertTrue(profile.validationIssues.contains("states.idleJitterSeconds must not be negative"))
+        XCTAssertTrue(profile.validationIssues.contains("states.animationAssets must only reference allowed animations"))
+        XCTAssertTrue(profile.validationIssues.contains("states.animationAssets paths must not be empty"))
     }
 }
